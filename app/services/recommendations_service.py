@@ -1,115 +1,154 @@
 import os
-import json
-import faiss
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from dotenv import load_dotenv
+from langchain.prompts import PromptTemplate
+from langchain.chains import RetrievalQA
+from bs4 import BeautifulSoup
+import pandas as pd
+from langchain.docstore.document import Document
+from typing import List
 from langchain_community.vectorstores import FAISS
-from langchain_community.llms import OpenAI
-from langchain.chains import ConversationChain
-from langchain.memory import ConversationBufferMemory
-import sys
+from langchain_openai import OpenAI
+from langchain_huggingface import HuggingFaceEmbeddings
+import tempfile
+import psycopg2
+import  sys
+temp_dir = tempfile.mkdtemp()
 
+# Load environment variables
+load_dotenv()
 
-# Load Faiss index and metadata
-index = faiss.read_index('bookingChainExpTicket-all-MiniLM-L6-v2.index')
-with open('bookingChainExpTicket-all-MiniLM-L6-v2_metadata.json', 'r') as f:
-    metadata = json.load(f)
-print('hii')
-sys.exit()
+# Initialize the LLM and embeddings
+llm = OpenAI(api_key=os.environ['OPENAI_API_KEY'], temperature=0.6)
 embedding_model = "all-MiniLM-L6-v2"
 instruct_embeddings = HuggingFaceEmbeddings(model_name=embedding_model)
+vector_db_file_path = os.path.join(temp_dir, "vector_store_new.db")
 
-# Create a retriever using the loaded index and metadata
-vector_db = FAISS(index, instruct_embeddings)
-retriever = vector_db.as_retriever(search_kwargs={"k": 5})
+def clean_html(raw_html):
+    """Clean HTML tags from a string."""
+    cleantext = BeautifulSoup(raw_html, "lxml").text
+    return cleantext
 
-llm = OpenAI(api_key=os.environ['OPENAI_API_KEY'], temperature=0.6)
+def fetch_data_from_table(table_name: str, fields: List[str]) -> pd.DataFrame:
+    """Fetch data from the specified table in the database."""
+    conn = get_db_connection()
+    query = f'SELECT {", ".join(fields)} FROM "{table_name}" WHERE is_active = TRUE and display_priority < 5'
+    df = pd.read_sql(query, conn)
+    conn.close()
+    return df
 
-# Initialize ConversationChain
-conversation = ConversationChain(
-    llm=llm,
-    memory=ConversationBufferMemory()
-)
+def get_db_connection():
+    """Get the database connection."""
+    return psycopg2.connect(
+        host=os.getenv("DB_HOST"),
+        port=os.getenv("DB_PORT"),
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD")
+    )
 
-def extract_info_from_query(query):
-    relevant_chunks = retriever.get_relevant_documents(query)
-    print(relevant_chunks)
-    if relevant_chunks:
-        metadata = relevant_chunks[0].metadata
-        experience_id = metadata.get('exp_id')
+def create_documents_from_db(table_name: str, fields: List[str]) -> List[Document]:
+    """Create documents from database records with vector embeddings."""
+    df = fetch_data_from_table(table_name, fields)
+    # print(df)
+    # sys.exit()
+    documents = []
+    for _, row in df.iterrows():
+        content = f"Name: {row['name']}\n"
+        content += f"Description: {clean_html(row['description'])}\n"
+        content += f"Location: {row['location']}\n"
+        content += f"Pin Code: {row['pin_code']}\n"
+        content += f"Is Stay: {'Yes' if row['is_stay'] else 'No'}\n"
+        content += f"Price: {row['price']}\n"
+        content += f"Latitude: {row['latitude']}\n"
+        content += f"Longitude: {row['longitude']}\n"
+
+        # Generate vector embedding for the content
+        embedding = instruct_embeddings.embed_query(content)
+
+        doc = Document(
+            page_content=content,
+            metadata={
+                "primary_key": row['primary_key'],
+                "name": row['name'],
+                "location": row['location'],
+                "is_stay": row['is_stay'],
+                "price": row['price'],
+                "latitude": row['latitude'],
+                "longitude": row['longitude'],
+                "display_priority": row['display_priority']
+            },
+            embedding=embedding  # Store the embedding with the document
+        )
+        documents.append(doc)
+    return documents
+
+def create_or_load_vector_store(docs: List[Document], store_path: str):
+    """Create or load a vector store with embeddings."""
+    if (os.path.exists(store_path)):
+        vector_store = FAISS.load_local(store_path, instruct_embeddings, allow_dangerous_deserialization=True)
+        print("Loaded existing vector store.")
     else:
-        experience_id = None
+        vector_store = FAISS.from_documents(docs, instruct_embeddings)
+        vector_store.save_local(store_path)
+        print("Created and saved new vector store.")
+    return vector_store
 
-    date_prompt = f"Extract and format the start and end dates from this query in YYYY-MM-DD format if dates are present: {query}. If no dates are present, return 'No dates found'."
-    date_response = llm.predict(date_prompt)
-    print('date_response')
-    print(date_response)
-    start_date, end_date = parse_date_response(date_response)
-    return experience_id, start_date, end_date
+def get_chain():
+    """Create the RetrievalQA chain."""
+    vector_db = FAISS.load_local(vector_db_file_path, embeddings=instruct_embeddings, allow_dangerous_deserialization=True)
+    retriever = vector_db.as_retriever(search_kwargs={"k": 5})
+    print("get_chain")
+    prompt_template = """Given the following context and a question, generate an answer based on this context only.
+    If the answer is not directly found in the context, try to infer a relevant answer based on the available information.
+    If no relevant information is found, kindly state "I don't have enough information to provide an answer."
 
-def parse_date_response(response):
-    # Implement logic to parse the LLM response and extract formatted dates
-    lines = response.split('\n')
-    start_date = end_date = None
-    for line in lines:
-        if 'start date:' in line.lower():
-            start_date = line.split(':')[1].strip()
-        elif 'end date:' in line.lower():
-            end_date = line.split(':')[1].strip()
-    return start_date, end_date
+    CONTEXT: {context}
 
-def getQueryResponse(user_query, selected_exp_id=None):
-    arr_res = []
-    print("user_query, selected_exp_id")
-    print(user_query, selected_exp_id)
-    experience_id, start_date, end_date = extract_info_from_query(user_query)
-    if selected_exp_id:
-        experience_id = selected_exp_id
+    QUESTION: {question}"""
+    PROMPT = PromptTemplate(
+        template=prompt_template, input_variables=["context", "question"]
+    )
 
-    if experience_id and start_date and end_date:
-        price_data = get_price_by_date(experience_id, start_date, end_date)
-        llm_prompt = f"""
-                Experience ID: {experience_id}
-                Start date: {start_date}
-                End date: {end_date}
-                Price data: {price_data}
+    chain = RetrievalQA.from_chain_type(
+        llm=llm,
+        chain_type="stuff",
+        retriever=retriever,
+        input_key="query",
+        return_source_documents=True,
+        chain_type_kwargs={"prompt": PROMPT}
+    )
+    return chain
 
-                Generate a response summarizing the booking details and pricing information.
-                """
-        response = llm.predict(llm_prompt)
-        arr_res = [response, price_data]
-        return arr_res
+def streamlit_query(query):
+    """Handle a query in a Streamlit app."""
+    chain = get_chain()
+    response = chain({"query": query})
+    result = response['result']
+    return result
 
-    # Search for relevant experiences
-    relevant_chunks = retriever.get_relevant_documents(user_query)
+if __name__ == "__main__":
+    table_name = "eoexperience"  # Replace with your actual table name
+    fields = ["primary_key","name", "description", "location", "pin_code", "is_stay", "price", "latitude", "longitude","display_priority"]
 
-    if relevant_chunks:
-        experiences = []
-        for chunk in relevant_chunks:
-            metadata = chunk.metadata
-            exp_id = metadata.get('exp_id')
-            location = metadata.get('location')
-            name = metadata.get('name')
-            if exp_id and name:
-                experiences.append({"id": exp_id, "name": name,"location":location})
+    # Create documents and vector store
+    docs = create_documents_from_db(table_name, fields)
 
-        if experiences:
-            llm_prompt = f"""
-                       User query: {user_query}
-                       Available experiences: {experiences}
+    # Delete the existing vector store file
+    if os.path.exists(vector_db_file_path):
+        os.remove(vector_db_file_path)
 
-                       Generate a response suggesting the available experiences based on the user's query. 
-                       If the query mentions a specific location, prioritize experiences in that location.
-                       """
-            response = llm.predict(llm_prompt)
-            arr_res.append(response)
-            arr_res.append({"experiences": experiences})
-            return arr_res
+    vector_store = create_or_load_vector_store(docs, vector_db_file_path)
 
-    # If no experiences found or if it's a follow-up query
-    response = conversation.predict(input=user_query)
-    arr_res = [response]
+    # Example queries
+    queries = [
+        "What is the price for the scuba diving course in Pondicherry?",
+        "What is the location of Red Earth, Kabini?",
+        "Can I stay at a riverside resort in Dandeli?",
+        "I want to do some activity in the water"
+    ]
 
-    return arr_res
-
-def get_recommendations(user_query):
-    return getQueryResponse(user_query)
+    for query in queries:
+        chain = get_chain()
+        result = chain.invoke(query)
+        print(f"Query: {query}")
+        print(f"Result: {result}\n")
