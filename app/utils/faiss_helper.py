@@ -67,3 +67,17 @@ def create_or_load_vector_store(docs: List[Document], store_path: str):
         vector_store.save_local(store_path)
         print("Created and saved new vector store.")
     return vector_store
+def initialize_vector_store(store_path):
+    vector_store = FAISS.load_local(store_path, instruct_embeddings, allow_dangerous_deserialization=True)
+    return vector_store
+
+    # table_name = "eoexperience"  # Replace with your actual table name
+    # fields = ["primary_key", "name", "description", "location", "pin_code", "is_stay", "price", "latitude", "longitude", "display_priority"]
+    # Create documents and vector store
+    # docs = create_documents_from_db(table_name, fields)
+    # vector_db_file_path = os.path.join(tempfile.gettempdir(), "vector_store_new1.db")
+    # vector_db_file_path='vector_store_new1'
+    # Delete the existing vector store file
+    # if os.path.exists(vector_db_file_path):
+        # os.remove(vector_db_file_path)
+    # vector_store = initialize_vector_store(vector_db_file_path)
