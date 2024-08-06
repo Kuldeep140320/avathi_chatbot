@@ -1,5 +1,5 @@
 import logging
-from app.services.nlp2 import genrate_query_response
+from app.services.nlp2 import generate_query_response
 from app.services.booking_handler import handle_booking_query
 
 # Define keywords for intent detection
@@ -33,7 +33,7 @@ def handle_query(query):
         }
     else:
         if query:
-            response = genrate_query_response(query)
+            response = generate_query_response(query)
             return response
         return {
             'result': "No relevant information found.",
@@ -46,4 +46,4 @@ def handle_price_query(query):
     # This is a placeholder implementation and should be replaced with actual API call logic
     return "Price details are not implemented yet."
 
-# The rest of the code (including `genrate_query_response`, `retrieve_and_filter_documents`, etc.) remains unchanged
+# The rest of the code (including `generate_query_response`, `retrieve_and_filter_documents`, etc.) remains unchanged
