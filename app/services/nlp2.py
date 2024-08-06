@@ -22,11 +22,13 @@ memory = ConversationBufferWindowMemory(k=5, memory_key="chat_history", input_ke
 # Booking state management
 booking_states = ['initial', 'destination', 'date', 'guests', 'login', 'payment']
 current_booking_state = 'initial'
+
 # Define your prompts
 context_analyzer_template = """Analyze the following query and chat history to determine the current context and any context switches.
 
 Query: {query}
 Chat History: {chat_history}
+Current Booking State: {booking_state}
 
 Provide a brief summary of the current context and explicitly state if there's a topic switch.
 Format your response as follows:
@@ -34,37 +36,50 @@ Current Context: [Brief description of the current topic]
 Topic Switch: [Yes/No]
 Previous Topic: [Only if there's a topic switch, otherwise 'N/A']
 New Topic: [Only if there's a topic switch, otherwise 'N/A']
+Suggested Booking State: [Suggest the next booking state if applicable, otherwise 'N/A']
 
 Analysis:"""
 
 context_analyzer_prompt = PromptTemplate(
-    input_variables=["query", "chat_history"],
+    input_variables=["query", "chat_history", "booking_state"],
     template=context_analyzer_template
 )
 
-classifier_template = """Given the following user query and context analysis, classify the query into one of these categories: general, destination, activity, or booking.
+classifier_template = """Given the following user query, context analysis, and booking state, classify the query into one of these categories: general, destination, activity, or booking.
 
 Context Analysis: {context_analysis}
 Query: {query}
+Current Booking State: {booking_state}
 
 Classification:"""
 
 classifier_prompt = PromptTemplate(
-    input_variables=["context_analysis", "query"],
+    input_variables=["context_analysis", "query", "booking_state"],
     template=classifier_template
 )
 
-response_template = """You are a helpful travel assistant. Based on the following classification, context analysis, query, and relevant information, generate an appropriate response. Be sure to address any context switches or topic changes noted in the context analysis.
+response_template = """You are a helpful travel assistant managing a booking flow. Based on the following classification, context analysis, query, relevant information, and current booking state, generate an appropriate response. Be sure to address any context switches or topic changes noted in the context analysis.
 
 Classification: {classification}
 Context Analysis: {context_analysis}
 Query: {query}
 Relevant Information: {relevant_info}
+Current Booking State: {booking_state}
+
+Provide a concise and relevant response based on the current booking state and user query. Follow these guidelines:
+1. If in 'initial' state, ask for the destination if not provided.
+2. If in 'destination' state, confirm the destination and ask for the date.
+3. If in 'date' state, confirm the date and ask for the number of guests (adults and children).
+4. If in 'guests' state, confirm guest numbers and prompt for login for discount prices.
+5. If in 'login' state, confirm login and provide a link to payment.
+6. If in 'payment' state, guide the user to complete the payment process.
+
+Keep responses brief and relevant. If the user asks questions unrelated to the current booking state, answer them concisely and guide them back to the booking flow if appropriate.
 
 AI Assistant:"""
 
 response_prompt = PromptTemplate(
-    input_variables=["classification", "context_analysis", "query", "relevant_info"],
+    input_variables=["classification", "context_analysis", "query", "relevant_info", "booking_state"],
     template=response_template
 )
 
@@ -76,17 +91,17 @@ response_chain = LLMChain(llm=llm, prompt=response_prompt, output_key="response"
 # Create SequentialChain
 sequential_chain = SequentialChain(
     chains=[context_analyzer_chain, classifier_chain, response_chain],
-    input_variables=["query", "chat_history", "relevant_info"],
+    input_variables=["query", "chat_history", "relevant_info", "booking_state"],
     output_variables=["context_analysis", "classification", "response"],
     verbose=True
 )
 
 
-
 def generate_response(query, chat_history ,relevant_info):
+    global current_booking_state
     try:
         with get_openai_callback() as cb:
-            response = sequential_chain({"query": query, "chat_history": chat_history , "relevant_info": relevant_info})
+            response = sequential_chain({"query": query, "chat_history": chat_history , "relevant_info": relevant_info , "booking_state": current_booking_state})
         
         print(f"Context Analysis: {response['context_analysis']}")
         print(f"Classification: {response['classification']}")
@@ -98,8 +113,11 @@ def generate_response(query, chat_history ,relevant_info):
         print(f"query: ${query}")
         print(f"chat_history: ${chat_history}")
         print(f"relevant_info: ${relevant_info}")
+        print(f"current_booking_state: ${current_booking_state}")
         
         print('\n')
+        current_booking_state = update_booking_state(response['context_analysis'], current_booking_state)
+
         return  response['response'], response['context_analysis']
     except Exception as e:
         logging.error(f"Error in generate_response: {e}")
@@ -110,7 +128,7 @@ def generate_query_response(query ):
     try:
         chat_history = memory.load_memory_variables({})["chat_history"]
         # First, get the context analysis
-        context_analysis = context_analyzer_chain.run(query=query, chat_history=chat_history)
+        context_analysis = context_analyzer_chain.run(query=query, chat_history=chat_history , booking_state=current_booking_state)
         print("Context Analysis:", context_analysis)
         
         relevant_info, documents = retrieve_and_filter_documents(query, context_analysis)
@@ -143,7 +161,8 @@ def generate_query_response(query ):
             'source_documents': documents,
             'context': relevant_info,
             'document_metadata': document_metadata ,
-             'context_analysis': updated_context_analysis
+            'context_analysis': updated_context_analysis,
+            'current_booking_state': current_booking_state
         }
     except Exception as e:
         print(f"Error in generate_query_response: {e}")
@@ -153,6 +172,13 @@ def generate_query_response(query ):
             'result': "An error occurred while processing your request.",
             'source_documents': []
         }
+
+def update_booking_state(context_analysis: str, current_state: str) -> str:
+    suggested_state = context_analysis.split("Suggested Booking State:")[-1].strip()
+    if suggested_state in booking_states:
+        return suggested_state
+    return current_state
+
 def retrieve_and_filter_documents(query, context_analysis):
     try:
 # Check if there's a topic switch
