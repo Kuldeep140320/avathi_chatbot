@@ -1,12 +1,13 @@
 import os
 import pandas as pd
-from typing import List
 from langchain.docstore.document import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from bs4 import BeautifulSoup
 from langchain_community.vectorstores import FAISS
 from app.utils.database import get_db_connection
 import sys
+from typing import List, Dict, Tuple
+
 embedding_model = "all-MiniLM-L6-v2"
 instruct_embeddings = HuggingFaceEmbeddings(model_name=embedding_model)
 

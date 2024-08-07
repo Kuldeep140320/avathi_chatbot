@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple
 from langchain.prompts import PromptTemplate, ChatPromptTemplate
 from langchain.chains import LLMChain, SequentialChain
 from langchain_community.vectorstores import FAISS
@@ -29,6 +29,7 @@ context_analyzer_template = """Analyze the following query and chat history to d
 Query: {query}
 Chat History: {chat_history}
 Current Booking State: {booking_state}
+Default Destinations: {default_destinations}
 
 Provide a brief summary of the current context and explicitly state if there's a topic switch.
 Format your response as follows:
@@ -37,11 +38,12 @@ Topic Switch: [Yes/No]
 Previous Topic: [Only if there's a topic switch, otherwise 'N/A']
 New Topic: [Only if there's a topic switch, otherwise 'N/A']
 Suggested Booking State: [Suggest the next booking state if applicable, otherwise 'N/A']
+Selected Destination: [Destination mentioned in query, or first default if none mentioned]
 
 Analysis:"""
 
 context_analyzer_prompt = PromptTemplate(
-    input_variables=["query", "chat_history", "booking_state"],
+    input_variables=["query", "chat_history", "booking_state","default_destinations"],
     template=context_analyzer_template
 )
 
@@ -65,6 +67,7 @@ Context Analysis: {context_analysis}
 Query: {query}
 Relevant Information: {relevant_info}
 Current Booking State: {booking_state}
+Default Destinations: {default_destinations}
 
 Provide a concise and relevant response based on the current booking state and user query. Follow these guidelines:
 1. If in 'initial' state, ask for the destination if not provided.
@@ -79,7 +82,7 @@ Keep responses brief and relevant. If the user asks questions unrelated to the c
 AI Assistant:"""
 
 response_prompt = PromptTemplate(
-    input_variables=["classification", "context_analysis", "query", "relevant_info", "booking_state"],
+    input_variables=["classification", "context_analysis", "query", "relevant_info", "booking_state","default_destinations"],
     template=response_template
 )
 
@@ -91,17 +94,23 @@ response_chain = LLMChain(llm=llm, prompt=response_prompt, output_key="response"
 # Create SequentialChain
 sequential_chain = SequentialChain(
     chains=[context_analyzer_chain, classifier_chain, response_chain],
-    input_variables=["query", "chat_history", "relevant_info", "booking_state"],
+    input_variables=["query", "chat_history", "relevant_info", "booking_state","default_destinations"],
     output_variables=["context_analysis", "classification", "response"],
     verbose=True
 )
 
 
-def generate_response(query, chat_history ,relevant_info):
+def generate_response(query, chat_history ,relevant_info ,default_destinations):
     global current_booking_state
     try:
         with get_openai_callback() as cb:
-            response = sequential_chain({"query": query, "chat_history": chat_history , "relevant_info": relevant_info , "booking_state": current_booking_state})
+            response = sequential_chain({
+                "query": query,
+                "chat_history": chat_history ,
+                "relevant_info": relevant_info ,
+                "booking_state": current_booking_state,
+                "default_destinations": default_destinations
+                })
         
         print(f"Context Analysis: {response['context_analysis']}")
         print(f"Classification: {response['classification']}")
@@ -128,14 +137,22 @@ def generate_query_response(query ):
     try:
         chat_history = memory.load_memory_variables({})["chat_history"]
         # First, get the context analysis
-        context_analysis = context_analyzer_chain.run(query=query, chat_history=chat_history , booking_state=current_booking_state)
+        default_destinations = get_default_destination()
+        print('\nhii',default_destinations,'\nhii')
+        
+        context_analysis = context_analyzer_chain.run(
+            query=query, 
+            chat_history=chat_history ,
+            booking_state=current_booking_state,
+            default_destinations=default_destinations
+            )
         print("Context Analysis:", context_analysis)
         
         relevant_info, documents = retrieve_and_filter_documents(query, context_analysis)
         print('Retrieved and filtered documents')
         print("relevant_info:", relevant_info)
         
-        response ,updated_context_analysis  = generate_response(query, chat_history ,relevant_info)
+        response ,updated_context_analysis  = generate_response(query, chat_history ,relevant_info,default_destinations)
         print("Generated Response:", response)
         print("Generated updated_context_analysis:", updated_context_analysis)
         
@@ -178,6 +195,40 @@ def update_booking_state(context_analysis: str, current_state: str) -> str:
     if suggested_state in booking_states:
         return suggested_state
     return current_state
+def get_default_destination() -> List[Tuple[str, str]]:
+    try:
+        # Query the vector store for documents
+        results = vector_db.similarity_search(
+            "",
+            k=500  # Retrieve more documents than needed to ensure we have enough after filtering
+        )
+
+        # Filter and process the results
+        filtered_destinations = {}
+        for doc in results:
+            
+            primary_key = doc.metadata.get('eoexperience_primary_key')
+            display_priority = doc.metadata.get('display_priority')
+            eoexperience_name = doc.metadata.get('eoexperience_name', 'Unknown')
+            lkdestination_name = doc.metadata.get('lkdestination_name', 'Unknown')
+
+            # Only consider documents with display_priority < 3 and valid primary key
+            if (primary_key and display_priority     and display_priority < 2):
+                print('\n',doc,'\n')
+                # If this primary key is not yet in our dictionary or has a lower display_priority
+                if (primary_key not in filtered_destinations or
+                    display_priority < filtered_destinations[primary_key][1]):
+                    filtered_destinations[primary_key] = (eoexperience_name, lkdestination_name, display_priority)
+
+        # Sort the destinations by display_priority and take the top 10
+        sorted_destinations = sorted(filtered_destinations.values(), key=lambda x: x[2])[:10]
+
+        # Return the list of tuples (eoexperience_name, lkdestination_name)
+        return [(eo_name, lk_name) for eo_name, lk_name, _ in sorted_destinations]
+
+    except Exception as e:
+        logging.error(f"Error retrieving default destinations: {e}")
+        return []
 
 def retrieve_and_filter_documents(query, context_analysis):
     try:
