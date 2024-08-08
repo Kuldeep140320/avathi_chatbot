@@ -8,6 +8,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.chatbot.travel_assistant import TravelAssistant
+from app.config import VECTOR_DB_PATH, EMBEDDING_MODEL
 
 # Load environment variables
 load_dotenv()
@@ -15,7 +16,6 @@ load_dotenv()
 # Vector store initialization
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
-from app.config import VECTOR_DB_PATH, EMBEDDING_MODEL
 
 def initialize_vector_store():
     print(VECTOR_DB_PATH, EMBEDDING_MODEL)
