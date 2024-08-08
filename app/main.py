@@ -9,10 +9,18 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.faiss_helper import initialize_vector_store
 from app.services.query_handler import handle_query
-from app.routes.booking import getPriceByDate, callPaymentAPI
+# from app.routes.booking import getPriceByDate, callPaymesntAPI
 
 # Load environment variables
 load_dotenv()
+from app.chatbot.travel_assistant import TravelAssistant
+
+
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# assistant = TravelAssistant()
 
 # Initialize session state for conversation history and selected experience
 if 'conversation_history' not in st.session_state:
@@ -29,7 +37,9 @@ if 'checkout_date' not in st.session_state:
 
 if 'guest_details' not in st.session_state:
     st.session_state.guest_details = {}
-
+if 'travel_assistant' not in st.session_state:
+    st.session_state.travel_assistant = TravelAssistant()
+    
 def main():
     st.title("Chatbot Data and Chain Flow Visualization")
     # Initialize vector store
@@ -48,10 +58,18 @@ def main():
 
     if st.button("Send"):
         try:
-            result = handle_query(query)
+            # result = handle_query(query)
+            # result = assistant.run(query)
+            result = st.session_state.travel_assistant.run(query)
             st.session_state.conversation_history.append(("user", query))
             st.session_state.conversation_history.append(("bot", result['result']))
-            display_conversation_history()
+            # display_conversation_history()
+            chat_history = st.session_state.travel_assistant.memory.chat_memory.messages
+            for message in chat_history:
+                if message.type == 'human':
+                    st.markdown(f"**You:** {message.content}")
+                elif message.type == 'ai':
+                    st.markdown(f"**Bot:** {message.content}")
             if 'document_metadata' in result and result['document_metadata']:
                 st.subheader("Select an Experience Document")
                 selected_experience = st.selectbox(
@@ -170,13 +188,14 @@ def prepare_payload_and_call_api(primary_key, checkin_date, checkout_date):
     st.success("Payment API called successfully!")
     st.write(response)
 
-def display_conversation_history():
-    st.subheader("Conversation History")
-    for i, (sender, message_text) in enumerate(st.session_state.conversation_history):
-        if sender == "user":
-            st.markdown(f"**You:** {message_text}")
-        else:
-            st.markdown(f"**Bot:** {message_text}")
+# def display_conversation_history():
+    # st.subheader("Conversation History")
+    # for i, (sender, message_text) in enumerate(st.session_state.conversation_history):
+    #     if sender == "user":
+    #         st.markdown(f"**You:** {message_text}")
+    #     else:
+    #         st.markdown(f"**Bot:** {message_text}")
+    
 
 if __name__ == "__main__":
     main()

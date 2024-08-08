@@ -112,8 +112,8 @@ def generate_response(query, chat_history ,relevant_info ,default_destinations):
                 "default_destinations": default_destinations
                 })
         
-        print(f"Context Analysis: {response['context_analysis']}")
-        print(f"Classification: {response['classification']}")
+        print(f"\nContext Analysis:\n {response['context_analysis']}")
+        print(f"\nClassification: {response['classification']}")
         print(f"Total Tokens: {cb.total_tokens}")
         print(f"Prompt Tokens: {cb.prompt_tokens}")
         print(f"Completion Tokens: {cb.completion_tokens}")
@@ -122,10 +122,11 @@ def generate_response(query, chat_history ,relevant_info ,default_destinations):
         print(f"query: ${query}")
         print(f"chat_history: ${chat_history}")
         print(f"relevant_info: ${relevant_info}")
-        print(f"current_booking_state: ${current_booking_state}")
+        print(f"\ncurrent_booking_state: ${current_booking_state}")
         
         print('\n')
         current_booking_state = update_booking_state(response['context_analysis'], current_booking_state)
+        print(f"\ncurrent_booking_state: ${current_booking_state}")
 
         return  response['response'], response['context_analysis']
     except Exception as e:
@@ -137,6 +138,8 @@ def generate_query_response(query ):
     try:
         chat_history = memory.load_memory_variables({})["chat_history"]
         # First, get the context analysis
+        print("\nchat_history\n",chat_history)
+
         default_destinations = get_default_destination()
         print('\nhii',default_destinations,'\nhii')
         
@@ -214,7 +217,7 @@ def get_default_destination() -> List[Tuple[str, str]]:
 
             # Only consider documents with display_priority < 3 and valid primary key
             if (primary_key and display_priority     and display_priority < 2):
-                print('\n',doc,'\n')
+                # print('\n',doc,'\n')
                 # If this primary key is not yet in our dictionary or has a lower display_priority
                 if (primary_key not in filtered_destinations or
                     display_priority < filtered_destinations[primary_key][1]):

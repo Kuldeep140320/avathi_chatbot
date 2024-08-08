@@ -1,5 +1,10 @@
-import requests
+from flask import Flask, request, jsonify
 from datetime import datetime
+import requests
+from chatbot.travel_assistant import TravelAssistant
+
+
+app=Flask(__name__)
 
 def getPriceByDate(primary_key, checkin_date, checkout_date):
     url = "https://api.avathi.com/api/v1/experience/getPriceByDate"
@@ -23,3 +28,5 @@ def callPaymentAPI(payload):
     response = requests.post(url, json=payload, headers=headers)
     response.raise_for_status()
     return response.json()
+if __name__ == '__main__':
+    app.run(debug=True)
