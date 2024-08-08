@@ -33,11 +33,11 @@ class TravelAssistant:
                     "default_destinations": get_default_destination()
                 })
             
-            print(f"\nContext Analysis:\n {response['context_analysis']}")
-            print(f"\nClassification: {response['classification']}")
-            print(f"Total Tokens: {cb.total_tokens}")
-            print(f"Total Cost (USD): ${cb.total_cost}")
-            print('\nresponse\n',response)
+            # print(f"\nContext Analysis:\n {response['context_analysis']}")
+            # print(f"\nClassification: {response['classification']}")
+            # print(f"Total Tokens: {cb.total_tokens}")
+            # print(f"Total Cost (USD): ${cb.total_cost}")
+            # print('\nresponse\n',response)
             self.current_booking_state = self.update_booking_state(response['context_analysis'])
             print(f"Updated Booking State: {self.current_booking_state}")
             self.chat_history.add_message(AIMessage(content=response['response']))
@@ -53,7 +53,7 @@ class TravelAssistant:
         return suggested_state if suggested_state in self.booking_manager.STATES else self.booking_manager.get_current_state()
 
     def generate_query_response(self, query):
-        print('generate_query_response:',query )
+        print('\ngenerate_query_response:',query )
         try:
             self.chat_history.add_message(HumanMessage(content=query))
 
@@ -65,7 +65,7 @@ class TravelAssistant:
                 booking_state=self.booking_manager.get_current_state(),
                 default_destinations=get_default_destination()
             )
-            print("allcontext_analysis:\n" ,context_analysis)
+            print("\nallcontext_analysis:" ,context_analysis)
             relevant_info, documents = retrieve_and_filter_documents(query, context_analysis)
             # print("context_analysis:\n" ,context_analysis)
             response, updated_context_analysis = self.generate_response(query, relevant_info)
@@ -89,7 +89,8 @@ class TravelAssistant:
 
     def run(self , query: str = None):
         print("Starting the Travel Assistant Chatbot...")
-        print(f"Default destinations: {self.default_destinations}")
+        # print("\nquery:\n",query,"\nquery\n")
+        # print(f"Default destinations: {self.default_destinations}")
         response = self.generate_query_response(query)
         return response
     # def get_chat_history(self):
