@@ -3,6 +3,7 @@ from datetime import datetime, date
 from dotenv import load_dotenv
 import os
 import sys
+from flask_cors import CORS  # Add this import
 
 # Ensure the correct path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -27,6 +28,8 @@ vector_db = initialize_vector_store()
 retriever = vector_db.as_retriever(search_kwargs={"k": 5})
 
 app = Flask(__name__)
+CORS(app)
+# CORS(app, resources={r"/query": {"origins": "http://localhost:3000"}})
 
 # Initialize TravelAssistant
 travel_assistant = TravelAssistant()
@@ -46,4 +49,5 @@ def process_query():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=8080)
