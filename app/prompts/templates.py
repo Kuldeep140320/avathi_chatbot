@@ -12,7 +12,7 @@ Current Context: [Brief description of the current topic]
 Topic Switch: [Yes/No]
 Previous Topic: [Only if there's a topic switch, otherwise 'N/A']
 New Topic: [Only if there's a topic switch, otherwise 'N/A']
-Suggested Booking State: [Suggest the next booking state if applicable, otherwise 'N/A']
+Suggested Booking State: [Suggest the next booking state:  'initial','destination', 'date', 'guests', 'login', or 'payment']
 Selected Destination: [Destination mentioned in query, or first default if none mentioned]
 
 Analysis:"""

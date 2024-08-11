@@ -41,7 +41,7 @@ def get_default_destination() -> List[Tuple[str, str]]:
 def retrieve_and_filter_documents(query, context_analysis):
     try:
 # Check if there's a topic switcpri
-        print('\nquery, context_analysis\n:',query, context_analysis)
+        print('\retrieve_and_filter_documents\n:')
         if "Topic Switch: Yes" in context_analysis:
             # If there's a topic switch, only use the query for retrieval
             relevant_chunks = retriever.get_relevant_documents(query)

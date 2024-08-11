@@ -7,6 +7,7 @@ class BookingManager:
 
     def __init__(self):
         self.current_state = 'initial'
+        self.booking_info = {}
 
     def get_current_state(self):
         return self.current_state
@@ -25,5 +26,23 @@ class BookingManager:
 
     def reset_state(self):
         self.current_state = 'initial'
+        self.booking_info = {}
+    def update_booking_state(self, suggested_state, query, context_analysis):
+        suggested_state = suggested_state.lower()
+        topic_changed = False
 
+        if "topic switch: yes" in context_analysis.lower():
+            self.reset_state()
+            topic_changed = True
+        elif 'destination' in suggested_state and self.current_state in ['initial']:
+            self.set_state('destination')
+        elif 'date' in suggested_state and self.current_state in ['destination']:
+            self.set_state('date')
+        elif 'guest' in suggested_state and self.current_state in ['date']:
+            self.set_state('guests')
+        elif 'login' in suggested_state and self.current_state in ['guests']:
+            self.set_state('login')
+        elif 'payment' in suggested_state and self.current_state in ['login']:
+            self.set_state('payment')
+        return self.current_state, topic_changed
 # You can add more booking-related methods here as needed
