@@ -1,4 +1,7 @@
 from langchain.prompts import PromptTemplate
+from langchain.output_parsers import PydanticOutputParser
+from pydantic import BaseModel, Field
+from typing import List
 
 context_analyzer_template = """Analyze the following query and chat history to determine the current context and any context switches.
 
@@ -59,3 +62,46 @@ response_prompt = PromptTemplate(
     input_variables=["classification", "context_analysis", "query", "relevant_info", "booking_state","default_destinations"],
     template=response_template
 )
+
+
+# class Experience(BaseModel):
+#     id: str = Field(description="ID of the experience")
+#     name: str = Field(description="Name of the experience")
+
+class UIAnalysis(BaseModel):
+    date_picker: bool = Field(description="Whether to show the date picker")
+    options_list: bool = Field(description="Whether to show the options list")
+    login_popup: bool = Field(description="Whether to show the login popup")
+    payment_link: bool = Field(description="Whether to show the payment link")
+    guest_info_form: bool = Field(description="Whether to show the guest info form")
+    # experiences: List[Experience] = Field(description="List of relevant experiences short according to user query", default=[])
+
+
+parser = PydanticOutputParser(pydantic_object=UIAnalysis)
+
+ui_analyzer_template = """
+Analyze the following response, context analysis, booking state  to determine what UI elements should be shown to the user at one time only one UI elements will be true.
+
+Response: {response}
+Context Analysis: {context_analysis}
+Current Booking State: {booking_state}
+
+Based on this information, determine:
+1. Should a date picker be shown? (Only if dates haven't been selected)
+2. Should a login popup be shown? (Only if user isn't logged in and it's appropriate)
+3. Should a payment link be shown? (Only if booking is ready for payment and not already paid)
+4. Should a guest information form be shown? (Only if guest info hasn't been provided)
+5. Should an options list for relevant experiences be shown? (Only if not already selected)
+
+Do not provide reasons for your decisions. Only return true or false for each UI element.
+
+{format_instructions}
+
+Analysis:
+"""
+
+ui_analyzer_prompt = PromptTemplate(
+    input_variables=["response", "context_analysis", "booking_state"],
+    template=ui_analyzer_template,
+    partial_variables={"format_instructions": parser.get_format_instructions()}
+) 

@@ -20,6 +20,9 @@ def process_query():
 
     try:
         result = travel_assistant.run(query, user_id)
-        return jsonify({"AI": result['result'] ,"current_booking_state":result['current_booking_state']})
+        return jsonify({
+            "ai": result['result'],
+            "ui_analysis": result['ui_analysis'],
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
