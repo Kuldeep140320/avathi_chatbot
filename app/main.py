@@ -27,9 +27,9 @@ def create_app():
     scheduler.start()
 
     return app
-
+app = create_app()
 if __name__ == '__main__':
-    app = create_app()
+    
     app.run(debug=True, host='0.0.0.0', port=8080)
 # from flask import Flask, request, jsonify,session
 # from flask_session import Session
