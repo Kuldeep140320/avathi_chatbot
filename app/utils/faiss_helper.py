@@ -71,7 +71,8 @@ def fetch_data_from_table(table_name: str) -> pd.DataFrame:
     WHERE 
         e.is_active = TRUE AND 
         l.is_active = TRUE AND 
-        p.is_active = TRUE
+        p.is_active = TRUE AND
+        e.display_priority < 50 
     ORDER BY 
         e.primary_key ASC;
     """
@@ -96,8 +97,8 @@ def create_documents_from_db(table_name: str, fields: List[str]) -> List[Documen
             f"Place Title: {clean_html(row['location'])}"
             f"Description: {clean_html(row['address'])}"
             f"lkdestination_name: {row['lkdestination_name']}"
-            f"Location: {clean_html(row['price'])}"
-            f"place_title: {clean_html(row['place_title'])}\n"
+            # f"Location: {clean_html(row['price'])}"
+            # f"place_title: {clean_html(row['place_title'])}\n"
             # f"Is Stay: {'Yes' if row['is_stay'] else 'No'}"
             # f"Price: {row['price'] if row['price'] else 'N/A'}"
             # f"eoexperience_faqs: {clean_html(row['eoexperience_faqs'])}\n"

@@ -16,7 +16,7 @@ if __name__ == "__main__":
     # print(docs)
     # sys.exit()
     # vector_db_file_path = os.path.join(tempfile.gettempdir(), "vector_store_new1.db")
-    vector_db_file_path='vector_store_new8'
+    vector_db_file_path='vector_store_new_9'
     # Delete the existing vector store file
     # if os.path.exists(vector_db_file_path):
         # os.remove(vector_db_file_path)
