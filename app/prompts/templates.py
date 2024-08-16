@@ -105,3 +105,35 @@ ui_analyzer_prompt = PromptTemplate(
     template=ui_analyzer_template,
     partial_variables={"format_instructions": parser.get_format_instructions()}
 ) 
+
+
+first_prompt_template = PromptTemplate(
+    input_variables=["query"],
+    template="""You are a helpful travel booking assistant. Your task is to understand the user's initial query and respond appropriately.
+
+User Query: {query}
+
+If the user is asking about travel or destinations, respond enthusiastically and ask where they want to go.
+If the user's query is not related to travel or is unclear, politely state that you don't understand and ask if they have any travel-related questions.
+
+Please structure your response as follows:
+1. A brief greeting
+2. Your understanding of their query or a request for clarification
+3. A question to guide the conversation towards travel planning
+
+Response:"""
+)
+
+# first_prompt_chain = LLMChain(llm=llm, prompt=first_prompt_template)
+
+options_prompt_template = PromptTemplate(
+                input_variables=["query", "options"],
+                template="""
+                User Query: {query}
+                Available Options: {options}
+
+                Generate a friendly and helpful response to the user's query. If there are relevant options, mention that we have several options without listing them all, and encourage the user to select from the dropdown or provide more details about their preferences. If the query is about a specific activity or booking, tailor the response accordingly. Keep the response concise and engaging.
+
+                Response:
+                """
+            )

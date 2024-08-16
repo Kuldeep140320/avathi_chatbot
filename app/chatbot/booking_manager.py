@@ -1,4 +1,7 @@
 # chatbot/chatbot/booking_manager.py
+from app.routes.api import APIUtils
+import sys
+from operator import itemgetter
 
 class BookingManager:
     STATES = [
@@ -46,3 +49,41 @@ class BookingManager:
             self.set_state('payment')
         return self.current_state, topic_changed
 # You can add more booking-related methods here as needed
+    def get_price_by_date(self, exp_id, check_in, check_out):
+        room_details =APIUtils.get_price_by_date(exp_id, check_in, check_out)
+        organized_rooms = []
+        for room in room_details['data']:
+            organized_room = {
+                'name': room['ticket_name'],
+                'id': room['ticket_id'],
+                'price': room['price_per_ticket'],
+                'total_price': room['price_per_ticket_with_tax'],
+                'occupancy': room['max_occupants_per_room'],
+                'ticket_order':room['ticket_order'],
+                'note': room['ticket_note'],
+                'guests': [
+                    {'type': guest['type'], 'price': guest['price_per_ticket']}
+                    for guest in room['guests']
+                ]
+            }
+            organized_rooms.append(organized_room)
+        organized_rooms.sort(key=itemgetter('price'))
+        response = f"I've found {len(organized_rooms)} accommodation options for your dates. "
+        response += "The prices range from "
+        response += f"₹{organized_rooms[0]['price']} to ₹{organized_rooms[-1]['price']} per night. "
+        response += "You can view all options in the dropdown menu below. "
+        response += "Which type of accommodation are you most interested in?"
+        organized_rooms.sort(key=itemgetter('ticket_order'))
+        
+        return {
+            'ai':response,
+            'ui_analysis': {
+                "options_list": True,
+                "date_picker": False,
+                "guest_info_form": False,
+                "login_popup": False,
+                "payment_link": False
+            },
+            'guest_data': room_details,
+
+        }

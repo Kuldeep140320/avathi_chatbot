@@ -1,9 +1,10 @@
 from flask import Blueprint, request, jsonify, session
 from uuid import uuid4
 from app.chatbot.travel_assistant import TravelAssistant
-
+from app.chatbot.travel import TravelGuide
 chat_bp = Blueprint('chat', __name__)
-travel_assistant = TravelAssistant()
+# travel_assistant = TravelAssistant()
+travel_assistant = TravelGuide()
 
 @chat_bp.route('/query', methods=['POST'])
 def process_query():
@@ -19,10 +20,8 @@ def process_query():
     user_id = session['user_id']
 
     try:
-        result = travel_assistant.run(query, user_id)
-        return jsonify({
-            "ai": result['result'],
-            "ui_analysis": result['ui_analysis'],
-        })
+        result = travel_assistant.run(data, user_id)
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    

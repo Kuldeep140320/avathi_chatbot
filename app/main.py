@@ -22,9 +22,9 @@ def create_app():
 
     app.register_blueprint(chat_bp, url_prefix='/api/chat')
 
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(func=travel_assistant.cleanup_old_conversations, trigger="interval", minutes=1)
-    scheduler.start()
+    # scheduler = BackgroundScheduler()
+    # scheduler.add_job(func=travel_assistant.cleanup_old_conversations, trigger="interval", minutes=1)
+    # scheduler.start()
 
     return app
 app = create_app()
