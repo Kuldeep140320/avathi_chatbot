@@ -132,7 +132,10 @@ options_prompt_template = PromptTemplate(
                 User Query: {query}
                 Available Options: {options}
 
-                Generate a friendly and helpful response to the user's query. If there are relevant options, mention that we have several options without listing them all, and encourage the user to select from the dropdown or provide more details about their preferences. If the query is about a specific activity or booking, tailor the response accordingly. Keep the response concise and engaging.
+                Generate a friendly and helpful response to the user's query. If there are relevant options, 
+                mention that we have several options without listing them all, and encourage the user to select from the dropdown or
+                provide more details about their preferences. If the query is about a specific activity or booking, tailor the response accordingly.
+                Keep the response concise and engaging.
 
                 Response:
                 """

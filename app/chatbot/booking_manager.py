@@ -78,12 +78,12 @@ class BookingManager:
         return {
             'ai':response,
             'ui_analysis': {
-                "options_list": True,
-                "date_picker": False,
-                "guest_info_form": False,
-                "login_popup": False,
-                "payment_link": False
+                "options_list": False,
+                "guest_list": True,
+                'guest_data': room_details,
+                # "login_popup": False,
+                # "payment_link": False
             },
-            'guest_data': room_details,
+            
 
         }

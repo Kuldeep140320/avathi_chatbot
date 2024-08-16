@@ -21,16 +21,17 @@ class TravelGuide:
             query = input_data.get('query', '')
             options = input_data.get('options', {})
             selected_options = input_data.get('selected_options', {})
-            is_first_query = input_data.get('is_first_query', False)
-            selected_option = selected_options.get('option')
+            # is_first_query = input_data.get('is_first_query', False)
+            selected_option = selected_options.get('option',)
             is_selected = selected_options.get('is_selected', False)
-            is_second_query = input_data.get('is_second_query', False)
-
-            if is_first_query:
-                return self.generate_query_response(query)
-            if is_second_query:
-                return self.generate_query_options(query)
-                
+            # is_second_query = input_data.get('is_second_query', False)
+            print('ddd')
+            print(query)
+            # if is_first_query:
+            #     return self.generate_query_response(query)
+            # if is_second_query:
+            #     return self.generate_query_options(query)
+            return self.generate_query_options(query)
             selected_option_by_query = False
             
             if not is_selected:
@@ -123,17 +124,12 @@ class TravelGuide:
                 eoexperience_name = doc.metadata.get('eoexperience_name', 'Unknown')
                 relevant_experiences[primary_key] = eoexperience_name
             return {
-                'guest_data': response,
+                'ai': response,
                 'ui_analysis': {
-                    "yes_no": False,
-                    "date_picker": False,
-                    "guest_info_form": False,
-                    "login_popup": False,
                     "options_list": True,
+                    "guest_list":False,
                     "options":relevant_experiences,
-                    "payment_link": False
                 },
-                'options': relevant_experiences
             }
         
         except Exception as e:
