@@ -2,6 +2,7 @@ from typing import List, Tuple
 from app.utils.vector_store import vector_db
 import logging
 from app.utils.vector_store import retriever
+from fuzzywuzzy import fuzz
 
 def get_default_destination() -> List[Tuple[str, str]]:
     try:
@@ -48,32 +49,33 @@ def retrieve_and_filter_documents(query, context_analysis):
         # else:
         #     # If no topic switch, use both query and context analysis for retrieval
         #     combined_query = f"{query}\n\nContext: {context_analysis}"
-        print('p')
-        print(query)
-        print('dd')
+        # print('p')
+        # print(query)
+        # print('dd')
         
         relevant_chunks = retriever.invoke(query)
 
         if relevant_chunks:
-            document_counts = {}
-            filtered_documents = []
-            i=1
-            # for chunk in relevant_chunks:
-            #     print("i:" ,i)
-            #     i=i+1
-            #     print('\n relevant_chunks :\n' ,chunk)
-            #     primary_key = chunk.metadata.get('eoexperience_primary_key')
-            #     if primary_key not in document_counts:
-            #         document_counts[primary_key] = 0
-
-            #     if document_counts[primary_key] < 2:
-            #         filtered_documents.append(chunk)
-            #         document_counts[primary_key] += 1
-
             sorted_documents = sorted(relevant_chunks, key=lambda x: x.metadata.get('display_priority', float('inf')))
-            context = "\n".join([f"{doc.metadata.get('eoexperience_name')} {doc.metadata.get('lkdestination_name')}\n{doc.page_content}" for doc in sorted_documents])
 
-            return context, sorted_documents
+            # Further filter and rank documents based on the relevance of `eoexperience_name` to the query
+            ranked_documents = []
+            for doc in sorted_documents:
+                eoexperience_name = doc.metadata.get('eoexperience_name', 'Unknown')
+                relevance_score = fuzz.partial_ratio(query.lower(), eoexperience_name.lower())
+                ranked_documents.append((doc, relevance_score))
+
+            # Sort by relevance score in descending order and take the top 3
+            ranked_documents = sorted(ranked_documents, key=lambda x: x[1], reverse=True)[:3]
+
+            # Extract the top 3 documents
+            top_documents = [doc for doc, score in ranked_documents]
+
+            # Create the context string from the top 3 documents
+            context = "\n".join([f"{doc.metadata.get('eoexperience_name')} {doc.metadata.get('lkdestination_name')}\n{doc.page_content}" for doc in top_documents])
+
+            return context, top_documents
+
 
         return None, []
     except Exception as e:

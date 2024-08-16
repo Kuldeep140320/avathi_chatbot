@@ -19,11 +19,11 @@ class TravelGuide:
     def query(self, input_data):
         try:
             query = input_data.get('query', '')
-            options = input_data.get('options', {})
-            selected_options = input_data.get('selected_options', {})
+            # options = input_data.get('options', {})
+            # selected_options = input_data.get('selected_options', {})
             # is_first_query = input_data.get('is_first_query', False)
-            selected_option = selected_options.get('option',)
-            is_selected = selected_options.get('is_selected', False)
+            # selected_option = selected_options.get('option',)
+            # is_selected = selected_options.get('is_selected', False)
             # is_second_query = input_data.get('is_second_query', False)
             print('ddd')
             print(query)
@@ -101,10 +101,17 @@ class TravelGuide:
             # context_analysis = context_analyzer_chain.run(query)
             relevant_info, documents = retrieve_and_filter_documents(query, context_analysis='')
             print("\nrelevant_info:\n",relevant_info)
+            # previous_context = self.memory.load_context()
+            previous_context = self._get_memory_context()
+            print('\nprevious_context\n',previous_context ,'\nend\n')
+            combined_input = f"{previous_context}\nUser: {query}"
+
             response = option_prompt_chain.run(
-                    query=query, 
-                    options=relevant_info,
+                    query=combined_input, 
+                    options=documents,
                 )
+            self.memory.save_context({"input": query}, {"output": response})
+            
             if not documents:
                 return {
                     'guest_data': "I'm sorry, but I don't have any specific information about that. Could you please provide more details about your travel preferences or ask about a different destination?",
@@ -117,12 +124,14 @@ class TravelGuide:
                         "payment_link": False
                     },
                 }
-            
+
             relevant_experiences = {}
             for doc in documents:
                 primary_key = doc.metadata.get('eoexperience_primary_key')
                 eoexperience_name = doc.metadata.get('eoexperience_name', 'Unknown')
                 relevant_experiences[primary_key] = eoexperience_name
+            self.memory.save_context({"input": query}, {"output": response})
+
             return {
                 'ai': response,
                 'ui_analysis': {
@@ -148,6 +157,12 @@ class TravelGuide:
     def get_price_by_date(self, exp_id, check_in, check_out):
         price_response = self.booking_manager.get_price_by_date(exp_id, check_in, check_out)
         return price_response
+    def _get_memory_context(self):
+        context = ""
+        for message in self.memory.chat_memory.messages:
+            role = "User" if isinstance(message, HumanMessage) else "AI"
+            context += f"{role}: {message.content}\n"
+        return context
     def run(self, input_data, user_id):
         is_date_selected = input_data.get('is_date_selected', False)
         if not is_date_selected:
