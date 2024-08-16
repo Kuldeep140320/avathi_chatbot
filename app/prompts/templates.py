@@ -127,16 +127,17 @@ Response:"""
 # first_prompt_chain = LLMChain(llm=llm, prompt=first_prompt_template)
 
 options_prompt_template = PromptTemplate(
-                input_variables=["query", "options"],
-                template="""
-                User Query: {query}
-                Available Options: {options}
+    input_variables=["query", "options"],
+    template="""
+    User Query: "{query}"
+    Available Options: {options}
 
-                Generate a friendly and helpful response to the user's query. If there are relevant options, 
-                mention that we have several options without listing them all, and encourage the user to select from the dropdown or
-                provide more details about their preferences. If the query is about a specific activity or booking, tailor the response accordingly.
-                Keep the response concise and engaging.
+    Craft a brief, friendly response to the query. Include   locations if
+    available in the option .  Don't list options or suggest alternatives. Keep the response concise and directly address the user's request.
 
-                Response:
-                """
-            )
+    If no relevant information is available, politely inform the user and encourage them to provide more details 
+    or ask about something else.
+     
+    Response:
+    """
+)

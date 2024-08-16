@@ -9,6 +9,6 @@ def initialize_vector_store():
     return vector_db
 
 vector_db = initialize_vector_store()
-# retriever = vector_db.as_retriever(search_kwargs={"k": 3})
-retriever = vector_db.as_retriever(search_type="mmr", search_kwargs={"k": 15, "fetch_k": 50})
+# retriever = vector_db.as_retriever(search_kwargs={"k": 10})
+retriever = vector_db.as_retriever(search_type="mmr", search_kwargs={"k": 10, "fetch_k": 50})
 # retriever = vector_db.similarity_search_with_score(query,k=5, filter={"eoexperience_name": {"$exists": True}})

@@ -53,25 +53,18 @@ def retrieve_and_filter_documents(query, context_analysis):
         # print(query)
         # print('dd')
         
-        relevant_chunks = retriever.invoke(query)
+        relevant_chunks = retriever.invoke(query ,top_k=50)
 
         if relevant_chunks:
-            sorted_documents = sorted(relevant_chunks, key=lambda x: x.metadata.get('display_priority', float('inf')))
+            
+            sorted_documents = sorted(relevant_chunks, key=lambda x: (
+                    fuzz.partial_ratio(query.lower(), x.metadata.get('eoexperience_name', '').lower()),
+                    # x.metadata.get('display_priority', float('inf'))
+                ), reverse=True)
 
-            # Further filter and rank documents based on the relevance of `eoexperience_name` to the query
-            ranked_documents = []
-            for doc in sorted_documents:
-                eoexperience_name = doc.metadata.get('eoexperience_name', 'Unknown')
-                relevance_score = fuzz.partial_ratio(query.lower(), eoexperience_name.lower())
-                ranked_documents.append((doc, relevance_score))
+            # Take the top 3 most relevant documents
+            top_documents = sorted_documents[:3]
 
-            # Sort by relevance score in descending order and take the top 3
-            ranked_documents = sorted(ranked_documents, key=lambda x: x[1], reverse=True)[:3]
-
-            # Extract the top 3 documents
-            top_documents = [doc for doc, score in ranked_documents]
-
-            # Create the context string from the top 3 documents
             context = "\n".join([f"{doc.metadata.get('eoexperience_name')} {doc.metadata.get('lkdestination_name')}\n{doc.page_content}" for doc in top_documents])
 
             return context, top_documents
