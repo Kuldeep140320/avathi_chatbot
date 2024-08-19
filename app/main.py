@@ -14,7 +14,8 @@ load_dotenv()
 def create_app():
     app = Flask(__name__)
     # CORS(app)
-    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+    # CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
 
     app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'fallback_secret_key')
     app.config['SESSION_TYPE'] = 'filesystem'
