@@ -56,19 +56,23 @@ class APIUtils:
         return cls.make_api_call('experience/getPriceByDate', data)
 
     @classmethod
-    def get_payment_total(cls, eoexperience_primary_key: str, total_amount: str, eouser_primary_key: int,
-                          date_of_exp: str, end_date: str, ticket_details: list, txn_id: str,
-                          universal_coupon_code: str) -> Optional[Dict[str, Any]]:
-        data = {
-            'eoexperience_primary_key': eoexperience_primary_key,
-            'total_amount': total_amount,
-            'eouser_primary_key': eouser_primary_key,
-            'date_of_exp': date_of_exp,
-            'end_date': end_date,
-            'ticket_details': ticket_details,
-            'txn_id': txn_id,
-            'universal_coupon_code': universal_coupon_code
-        }
-        return cls.make_api_call('getPaymentTotal', data)
+    def get_payment_total(cls, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        return cls.make_api_call('getPaymentTotal', payload)      
+    # def get_payment_total(self, exp_id: str, check_in: str, check_out: Optional[str]) -> Optional[Dict[str, Any]]:
+    #     # Map new arguments to the required payload structure
+    #     data = {
+    #         'eoexperience_primary_key': exp_id,
+    #         'total_amount': "0",  # Assuming you always start with a total amount of "0"
+    #         'eouser_primary_key': self.user_primary_key,  # Assuming the user primary key is stored in the instance
+    #         'date_of_exp': check_in,
+    #         'end_date': check_out,
+    #         'ticket_details': self.get_ticket_details(),  # Assuming there's a method to retrieve ticket details
+    #         'txn_id': self.generate_txn_id(),  # Assuming there's a method to generate or retrieve a transaction ID
+    #         'universal_coupon_code': self.get_universal_coupon_code()  # Assuming there's a method to retrieve a coupon code
+    #     }
+        
+    #     return self.make_api_call('getPaymentTotal', data)
+
+
 
 # Usage examples remain the same

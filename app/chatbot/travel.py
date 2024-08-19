@@ -157,6 +157,9 @@ class TravelGuide:
     def get_price_by_date(self, exp_id, check_in, check_out):
         price_response = self.booking_manager.get_price_by_date(exp_id, check_in, check_out)
         return price_response
+    def get_payment_total(self):
+        payment_total = self.booking_manager.get_payment_total()
+        return payment_total
     def _get_memory_context(self):
         context = ""
         for message in self.memory.chat_memory.messages:
@@ -167,7 +170,10 @@ class TravelGuide:
         is_date_selected = input_data.get('is_date_selected', False)
         if not is_date_selected:
             return self.query(input_data)
-    
+        get_payment_total=input_data.get('get_payment_total' ,False)
+        if get_payment_total:
+            return self.get_payment_total()
+            
         selected_options = input_data.get('selected_options', {})
         exp_id = selected_options.get('exp_id', False)
         dates = input_data.get('date', {})

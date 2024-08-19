@@ -87,3 +87,29 @@ class BookingManager:
             
 
         }
+        
+    def get_payment_total(self):
+        static_payload = {
+            "eoexperience_primary_key": "686",
+            "total_amount": "0",
+            "eouser_primary_key": 8553,
+            "date_of_exp": "2024-05-28",
+            "end_date": "2024-05-29",
+            "ticket_details": [
+                {
+                    "ticket_id": 1066,
+                    "max_occupants_per_room": 3,
+                    "guest_type": [
+                        {
+                            "qty": 2,
+                            "price": "11500",
+                            "type": 1
+                        }
+                    ]
+                }
+            ],
+            "txn_id": "AVATHI171404042080",
+            "universal_coupon_code": "staff"
+        }
+        payment_details = APIUtils.get_payment_total(static_payload)
+        return payment_details
