@@ -1,5 +1,5 @@
 import requests
-from flask import current_app, session
+# from flask import current_app, session
 import json
 from typing import Dict, Any, Optional
 
@@ -35,15 +35,15 @@ class APIUtils:
         url = f"{cls.BASE_URL}/{endpoint}"
         headers = cls._get_headers()
         
-        session_id = cls._get_session_cookie()
-        cookies = {'session': session_id} if session_id else {}
+        # session_id = cls._get_session_cookie()
+        # cookies = {'session': session_id} if session_id else {}
 
         try:
-            response = requests.post(url, headers=headers, json=data, cookies=cookies)
+            response = requests.post(url, headers=headers, json=data)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as e:
-            current_app.logger.error(f"Error calling API {endpoint}: {e}")
+            # current_app.logger.error(f"Error calling API {endpoint}: {e}")
             return None
 
     @classmethod

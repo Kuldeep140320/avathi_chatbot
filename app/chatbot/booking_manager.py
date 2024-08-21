@@ -88,7 +88,7 @@ class BookingManager:
 
         }
         
-    def get_payment_total(self):
+    def get_payment_total(self ,payment_total):
         static_payload = {
             "eoexperience_primary_key": "686",
             "total_amount": "0",
@@ -111,5 +111,6 @@ class BookingManager:
             "txn_id": "AVATHI171404042080",
             "universal_coupon_code": "staff"
         }
-        payment_details = APIUtils.get_payment_total(static_payload)
+        print('\npayment_total\n' ,payment_total)
+        payment_details = APIUtils.get_payment_total(payment_total)
         return payment_details
