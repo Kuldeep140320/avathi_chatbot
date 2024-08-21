@@ -2,11 +2,18 @@ import requests
 # from flask import current_app, session
 import json
 from typing import Dict, Any, Optional
+import os
+from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
+
+pau_merchantId = os.getenv("MERCHANTID")
+payu_token = os.getenv("PAYUTOKEN")
 class APIUtils:
     # BASE_URL = 'http://127.0.0.1:8080/api/v1'
     BASE_URL = 'http://devapi.avathi.com/api/v1'
-
+    PAYU_BASE_URL = 'https://oneapi.payu.in'
     
     @staticmethod
     def _get_headers():
@@ -19,6 +26,33 @@ class APIUtils:
             'Referer': 'http://159.65.156.66/',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
         }
+    @staticmethod
+    def _get_headers_payu():
+        return {
+            'merchantId': os.getenv("MERCHANTID"),
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {os.getenv("PAYUTOKEN")}'
+        }
+        
+    @classmethod
+    def get_payment_link(cls ,total_amount):
+        url = f"{cls.PAYU_BASE_URL}/payment-links/"
+        headers = cls._get_headers_payu()
+        payload = {
+            "subAmount": total_amount,
+            "isPartialPaymentAllowed": False,
+            "description": "paymentLink for testing",
+            "source": "API"
+        }
+        
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            print(f"Failed to create payment link: {e}")
+            print(f"Response content: {response.text}")  # Add this line to see the full error message
+            return None
 
     @staticmethod
     def _get_session_cookie():

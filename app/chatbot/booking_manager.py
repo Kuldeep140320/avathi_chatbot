@@ -111,6 +111,10 @@ class BookingManager:
             "txn_id": "AVATHI171404042080",
             "universal_coupon_code": "staff"
         }
-        print('\npayment_total\n' ,payment_total)
         payment_details = APIUtils.get_payment_total(payment_total)
+        total_amount=payment_details['data']['total_amount']
+        taxes=payment_details['data']['taxes']
+        amount=total_amount+taxes
+        get_payment_link=APIUtils.get_payment_link(amount)
+        payment_details['paymentLink']=get_payment_link['result']['paymentLink']
         return payment_details
