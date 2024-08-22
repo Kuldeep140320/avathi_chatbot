@@ -20,7 +20,7 @@ class ChatBot:
         query = data.get('query')
         chat_id = data.get('chat_id')
         clear_session = data.get('clear_session', False)
-
+        history = data.get('history')
         current_app.logger.info(f"Session at start: {dict(session)}")
 
         if clear_session:
@@ -43,7 +43,7 @@ class ChatBot:
             current_app.logger.info(f"Chat state cleared for chat_id {chat_id} due to inactivity")
 
         try:
-            result, new_chat_state = booking_chat(query, chat_state)
+            result, new_chat_state = booking_chat(query, history)
 
             current_app.logger.info(f"Before update - Session for chat_id {chat_id}: {chat_state}")
             new_chat_state['last_activity'] = time.time()
