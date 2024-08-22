@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
 
 # Load environment variables from .env file
 load_dotenv()
@@ -20,6 +21,12 @@ class Config:
 
     SQLALCHEMY_DATABASE_URI = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    
+    
+    SECRET_KEY = os.environ.get('FLASK_SECRET_KEY', 'your_fallback_secret_key_here')
+    SESSION_TYPE = 'filesystem'
+    SESSION_PERMANENT = True
+    PERMANENT_SESSION_LIFETIME = timedelta(days=1)
 
 # Table Configuration
 TABLES_CONFIG = {
@@ -31,3 +38,10 @@ TABLES_CONFIG = {
 
     # Add other tables and their fields here
 }
+
+
+class DevelopmentConfig(Config):
+    DEBUG = True
+
+class ProductionConfig(Config):
+    DEBUG = False
