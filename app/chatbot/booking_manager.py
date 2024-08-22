@@ -113,8 +113,8 @@ class BookingManager:
         }
         payment_details = APIUtils.get_payment_total(payment_total)
         total_amount=payment_details['data']['total_amount']
-        taxes=payment_details['data']['taxes']
-        amount=total_amount+taxes
-        get_payment_link=APIUtils.get_payment_link(amount)
+        # taxes=payment_details['data']['taxes']
+        # amount=total_amount+taxes
+        get_payment_link=APIUtils.get_payment_link(total_amount)
         payment_details['paymentLink']=get_payment_link['result']['paymentLink']
         return payment_details
