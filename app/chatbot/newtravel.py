@@ -444,7 +444,7 @@ functions = [
     },
     {
         "name": "set_dates",
-        "description": "Set the check-in and check-out dates for the booking",
+        "description": "Set the check-in and check-out dates for the booking. If two dates are provided, the earlier date will be set as check-in and the later as check-out. Dates default to the current year if not specified.",
         "parameters": {
             "type": "object",
             "properties": {
