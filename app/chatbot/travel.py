@@ -133,7 +133,7 @@ class TravelGuide:
             self.memory.save_context({"input": query}, {"output": response})
 
             return {
-                'ai': response,
+                'ai': "Here are some options for your request",
                 'ui_analysis': {
                     "options_list": True,
                     "guest_list":False,

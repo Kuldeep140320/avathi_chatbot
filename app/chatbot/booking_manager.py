@@ -76,7 +76,7 @@ class BookingManager:
         organized_rooms.sort(key=itemgetter('ticket_order'))
         
         return {
-            'ai':response,
+            'ai':"Here are the room options",
             'ui_analysis': {
                 "options_list": False,
                 "guest_list": True,
