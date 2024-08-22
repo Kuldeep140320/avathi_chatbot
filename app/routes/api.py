@@ -53,7 +53,25 @@ class APIUtils:
             print(f"Failed to create payment link: {e}")
             print(f"Response content: {response.text}")  # Add this line to see the full error message
             return None
-
+    @classmethod
+    def get_payment_token(cls):
+        url="https://accounts.payu.in/oauth/token"
+        payload = {
+            "client_id": os.getenv("PAYU_CLIENT_ID"),
+            "client_secret": os.getenv("PAYU_CLIENT_SECRET"),
+            "grant_type": "create_payment_links",
+            "scope": "client_credentials"
+        }
+        headers = cls._get_headers_payu()
+        try:
+            response = requests.post(url, data=payload, headers=headers)
+            response.raise_for_status()
+            return response.json()  # Return the JSON response which contains the token
+        except requests.RequestException as e:
+            print(f"Failed to retrieve payment token: {e}")
+            if response is not None:
+                print(f"Response content: {response.text}")
+            return None
     @staticmethod
     def _get_session_cookie():
         try:
