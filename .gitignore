@@ -5,4 +5,4 @@ __pycache__/
 .env
 venv/
 .vscode/
-.flask_session
+.flask_session/
