@@ -9,8 +9,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import json
 
 # Assume these are imported from your existing codebase
-from app.utils.vector_store import retriever
-from app.routes.api import APIUtils
+from utils.vector_store import retriever
+from routes.api import APIUtils
 
 # Replace with your actual OpenAI API key
 openai.api_key = "your-openai-api-key"
@@ -83,7 +83,7 @@ def present_room_options(chatbot):
     
     return options_text
 
-def select_room(chatbot, room_selection):
+def select_room_or_package(chatbot, room_selection):
     selected_room = None
     try:
         # Check if user input is a number
@@ -145,9 +145,10 @@ def set_occupancy(chatbot, adults, children):
     amount=price_response['data']['total_amount']
     taxes=price_response['data']['taxes']
     total_amount=amount+taxes
+    # print("\ntotal amount\n",total_amount)
     get_payment_link=APIUtils.get_payment_link(total_amount)
     payment_link=get_payment_link['result']['paymentLink']
-    print("\ngetpayment total :",price_response)
+    # print("\ngetpayment total :",price_response)
     if price_response.get("status") == "success":
         payment_data = price_response.get("data")
         chatbot.payment_data = payment_data  # Store the payment data in the chatbot object
@@ -159,11 +160,10 @@ def set_occupancy(chatbot, adults, children):
         message += f"Amount: ${amount}\n"
         message += f"Total amount: ${total_amount}\n"
         message += f"Included taxes: ${taxes}\n\n"
-        
         if payment_link:
-            message += f"To complete your booking, please use this payment link:\n {payment_link}\n\n"
+            message += f"To complete your booking, please make payment:\n {payment_link}\n\n"
         
-        message += "Would you like to confirm this booking or make any changes?"
+        # message += "Would you like to confirm this booking or make any changes?"
         
         chatbot.chat_history.add_ai_message(message)
         # if discount_amount > 0:
@@ -278,8 +278,8 @@ def run_booking_assistant(user_input, chatbot=None):
             set_dates(chatbot, arguments)
         # elif function_name == "get_price":
             # get_price(chatbot)
-        elif function_name == "select_room":
-            select_room(chatbot, arguments.get("room_selection"))
+        elif function_name == "select_room_or_package":
+            select_room_or_package(chatbot, arguments.get("room_selection"))
         elif function_name == "set_occupancy":
             set_occupancy(chatbot, arguments.get("adults"), arguments.get("children"))
         elif function_name == "confirm_booking":
@@ -464,7 +464,7 @@ functions = [
         "description": "Confirm the booking with the selected experience and dates"
     },
     {
-        "name": "select_room",
+        "name": "select_room_or_package",
         "description": "Select a room or Package from the available options ",
         "parameters": {
             "type": "object",
@@ -509,3 +509,9 @@ if __name__ == "__main__":
         # print("Booking State:", booking_state)
         chatbot = booking_state  # This now stores the dictionary representation
         # print('\n final chatbot :', chatbot)
+        
+def booking_chat(user_input, chat_state=None):
+    chatbot = chat_state if chat_state else None
+    response, booking_state = run_booking_assistant(user_input, chatbot)
+    return response, booking_state
+    
