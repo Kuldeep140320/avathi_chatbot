@@ -33,17 +33,19 @@ def process_query():
 @chat_bp.route('/query2', methods=['POST'])
 def process_query2():
     data = request.json
-    query = data.get('query')
-    chat_history=data.get('chat_history')
-    try:
-        result, new_chat_state = booking_chat(query, chat_history)
-        response = {
-            'ai': result,
-            'chat_history': new_chat_state
-        }
-        return jsonify(response)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    query = data.get('query',"")
+    chat_history=data.get('chat_history',{})
+    # chat_history['chat_history']=data.get('conversation_history',{})
+    # try:
+    result, new_chat_state ,conversation_history= booking_chat(query, chat_history)
+    response = {
+        'ai': result,
+        'chat_history': new_chat_state,
+        # "conversation_history":conversation_history
+    }
+    return jsonify(response)
+    # except Exception as e:
+    #     return jsonify({"error": str(e)}), 500
     
 @chat_bp.route('/payment_token', methods=['POST'])
 def payment_token():
