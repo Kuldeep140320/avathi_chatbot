@@ -35,14 +35,19 @@ class APIUtils:
         }
         
     @classmethod
-    def get_payment_link(cls ,total_amount):
+    def get_payment_link(cls ,total_amount,token):
         url = f"{cls.PAYU_BASE_URL}/payment-links/"
-        headers = cls._get_headers_payu()
+        # headers = cls._get_headers_payu()
         payload = {
             "subAmount": total_amount,
             "isPartialPaymentAllowed": False,
             "description": "paymentLink for testing",
             "source": "API"
+        }
+        headers = {
+            'merchantId': os.getenv("MERCHANTID"),
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {token}'
         }
         
         try:
@@ -59,10 +64,13 @@ class APIUtils:
         payload = {
             "client_id": os.getenv("PAYU_CLIENT_ID"),
             "client_secret": os.getenv("PAYU_CLIENT_SECRET"),
-            "grant_type": "create_payment_links",
-            "scope": "client_credentials"
+            "grant_type": "client_credentials",
+            "scope": "create_payment_links"
         }
-        headers = cls._get_headers_payu()
+        headers = {
+        'Content-Type': 'application/x-www-form-urlencoded',  # Set the correct content type
+        'Accept': 'application/json'
+        }
         try:
             response = requests.post(url, data=payload, headers=headers)
             response.raise_for_status()

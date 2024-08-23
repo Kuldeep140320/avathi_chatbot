@@ -6,6 +6,7 @@ from app.chatbot.newtravel import booking_chat
 chat_bp = Blueprint('chat', __name__)
 # travel_assistant = TravelAssistant()
 from datetime import timedelta
+from app.routes.api import APIUtils
 
 travel_assistant = TravelGuide()
 import time
@@ -41,5 +42,14 @@ def process_query2():
             'chat_history': new_chat_state
         }
         return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@chat_bp.route('/payment_token', methods=['POST'])
+def payment_token():
+    try:
+        token = APIUtils.get_payment_token()
+       
+        return jsonify(token['access_token'])
     except Exception as e:
         return jsonify({"error": str(e)}), 500

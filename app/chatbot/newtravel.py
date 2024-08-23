@@ -7,7 +7,6 @@ from fuzzywuzzy import fuzz
 import sys,os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import json
-
 # Assume these are imported from your existing codebase
 from utils.vector_store import retriever
 from routes.api import APIUtils
@@ -142,13 +141,16 @@ def set_occupancy(chatbot, adults, children):
     
     # Call the get_payment_total API
     price_response = APIUtils.get_payment_total(payload)
+    print(price_response)
     total_amount=price_response['data']['total_amount']
     total_without_gst=price_response['data']['total_without_gst']
     discount_coupon=price_response['data']['discount_coupon']
     discount_amount=price_response['data']['discount_amount']
     taxes=price_response['data']['taxes']
-    # get_payment_token=APIUtils.get_payment_token()
-    get_payment_link=APIUtils.get_payment_link(total_amount)
+    get_payment_token=APIUtils.get_payment_token()
+    token=get_payment_token['access_token']
+    get_payment_link=APIUtils.get_payment_link(total_amount,token)
+    
     payment_link=get_payment_link['result']['paymentLink']
     # print("\ngetpayment total :",price_response)
     if price_response.get("status") == "success":
@@ -159,11 +161,11 @@ def set_occupancy(chatbot, adults, children):
         message += f"Check-in: {chatbot.check_in}\n"
         message += f"Check-out: {chatbot.check_out}\n"
         message += f"Guests: {chatbot.adults} adults, {chatbot.children} children\n"
-        message += f"Amount: ${total_without_gst+discount_amount}\n"
-        message += f"Discount Amount: ${discount_amount}\n"
-        message += f"Discount Coupon: ${discount_coupon}\n"
-        message += f"Included taxes: ${taxes}\n\n"
-        message += f"Total amount: ${total_amount}\n"
+        message += f"Amount: INR{total_without_gst+discount_amount}\n"
+        message += f"Discount Amount: INR{discount_amount}\n"
+        message += f"Discount Coupon: INR{discount_coupon}\n"
+        message += f"Included taxes: INR{taxes}\n\n"
+        message += f"Total amount: INR{total_amount}\n"
         
         if payment_link:
             message += f"To complete your booking, please make payment:\n {payment_link}\n\n"
@@ -181,7 +183,7 @@ def set_occupancy(chatbot, adults, children):
 
 def ask_for_occupancy(chatbot):
     max_occupancy = chatbot.selected_room['max_occupants_per_room']
-    chatbot.chat_history.add_ai_message(f"Great! You've selected the {chatbot.selected_room['ticket_name']}. This room can accommodate up to {max_occupancy} guests.")
+    chatbot.chat_history.add_ai_message(f"Great! You've selected the {chatbot.selected_room['ticket_name']}. This room can accommodate up to {max_occupancy} guests. Please provide the number of adults and children.")
     return f"How many adults and children will be staying? (Maximum {max_occupancy} guests in total)"
 
 def convert_chat_history_to_messages(chat_history):
@@ -232,17 +234,8 @@ def run_booking_assistant(user_input, chatbot=None):
         new_chatbot = BookingRequest(chat_history, llm)
         new_chatbot.update_from_dict(chatbot)
         chatbot = new_chatbot
-    # print('\nchatbot', chatbot)
-    # print("\n chatbot.chat_history :", chatbot.chat_history)
     chatbot.chat_history.add_user_message(user_input)
-    # print('\nconvert chat history :', convert_chat_history_to_messages(chatbot.chat_history))
-    # print('\n chatbot.possible_experiences : ', chatbot.possible_experiences)
-    # print('\n chatbot.selected_room : ', chatbot.selected_room)
-    # print('\n chatbot.room_options : ', chatbot.room_options)
-    # print('\n chatbot.price_data : ', chatbot.price_data)
-
     if chatbot.possible_experiences:
-        # print('\nchecking exp is selected\n' )
         selected_experience = None
         try:
             # Check if user input is a number
@@ -261,28 +254,22 @@ def run_booking_assistant(user_input, chatbot=None):
             chatbot.possible_experiences = None
             chatbot.chat_history.add_ai_message(f"Great! You've selected {chatbot.experience_name}. When would you like to check in and check out?")
             return chatbot.get_most_recent_message(), chatbot.get_booking_state()
-    # print("\nchat history msg",convert_chat_history_to_messages(chatbot.chat_history))
     ai_response = chatbot.llm.chat.completions.create(
         model="gpt-4o-mini",
         messages=convert_chat_history_to_messages(chatbot.chat_history),
         functions=functions,
         function_call="auto"
     )
-    # print('\nai_response :' ,ai_response)
     if ai_response.choices[0].message.content:
         chatbot.chat_history.add_ai_message(ai_response.choices[0].message.content)
     elif ai_response.choices[0].message.function_call:
         function_call = ai_response.choices[0].message.function_call
         function_name = function_call.name
-        # arguments = function_call.arguments
         arguments = json.loads(function_call.arguments)
-
         if function_name == "set_experience":
             set_experience(chatbot, arguments)
         elif function_name == "set_dates":
             set_dates(chatbot, arguments)
-        # elif function_name == "get_price":
-            # get_price(chatbot)
         elif function_name == "select_room_or_package":
             select_room_or_package(chatbot, arguments.get("room_selection"))
         elif function_name == "set_occupancy":
@@ -291,7 +278,6 @@ def run_booking_assistant(user_input, chatbot=None):
             confirm_booking(chatbot)
     if not chatbot.experience_id:
         next_ai_message(chatbot)
-
     return chatbot.get_most_recent_message(), chatbot.get_booking_state()
 
 def set_experience(chatbot, arguments):
@@ -338,7 +324,7 @@ def set_dates(chatbot, arguments):
         # chatbot.check_out = check_out
         # chatbot.chat_history.add_ai_message(f"Thank you. I've set your check-in date to {check_in} and check-out date to {check_out}. Would you like me to check the price for these dates?")
     else:
-        chatbot.chat_history.add_ai_message("I'm sorry, but the dates you provided are not valid. Please make sure the check-in date is before the check-out date and both are in the future. Could you please provide the dates again?")
+        chatbot.chat_history.add_ai_message("I'm sorry, but the dates you provided are not valid. Please ensure that both the month and year are correct. Could you please provide the dates again?")
 
 def get_price(chatbot):
     if chatbot.experience_id and chatbot.check_in and chatbot.check_out:
@@ -402,19 +388,7 @@ def next_ai_message(chatbot):
             chatbot.chat_history.add_ai_message("Would you like me to calculate the total price for your stay?")
     else:
         chatbot.chat_history.add_ai_message("Your booking is confirmed. Is there anything else I can help you with?")
-    # if chatbot.possible_experiences:
-    #     options = "\n".join([f"{i+1}. {exp['name']}" for i, exp in enumerate(chatbot.possible_experiences)])
-    #     chatbot.chat_history.add_ai_message(f"I found these options matching your request:\n{options}\nWhich one would you like to book? You can reply with the name of the experience.")
-    # elif not chatbot.experience_id:
-    #     chatbot.chat_history.add_ai_message("What kind of experience or room are you looking for?")
-    # elif not chatbot.check_in or not chatbot.check_out:
-    #     chatbot.chat_history.add_ai_message("When would you like to check in and check out?")
-    # elif not chatbot.is_ready:
-    #     chatbot.chat_history.add_ai_message("Would you like me to check the price for these dates?")
 def search_experiences(query):
-    # print('query' ,query)
-    # This function should use your existing search functionality
-    # For now, we'll use a dummy implementation
     results = retriever.get_relevant_documents(query)
     return [{"id": doc.metadata["eoexperience_primary_key"], "name": doc.metadata["eoexperience_name"]} for doc in results]
 
@@ -426,7 +400,7 @@ def validate_dates(check_in, check_out):
         return check_in_date < check_out_date and check_in_date >= today
     except ValueError:
         return False
-
+ 
 functions = [
     {
         "name": "set_experience",
@@ -444,17 +418,17 @@ functions = [
     },
     {
         "name": "set_dates",
-        "description": "Set the check-in and check-out dates for the booking. If two dates are provided, the earlier date will be set as check-in and the later as check-out. Dates default to the current year if not specified.",
+        "description": "Set the check-in and check-out dates for the booking. If two dates are provided, the earlier date will be set as check-in and the later as check-out. Dates default to the current yearis  if not specified date are not {berofre date(today)}.",
         "parameters": {
             "type": "object",
             "properties": {
                 "check_in": {
                     "type": "string",
-                    "description": "The check-in date in YYYY-MM-DD format"
+                    "description": "The check-in date in YYYY-MM-DD format",
                 },
                 "check_out": {
                     "type": "string",
-                    "description": "The check-out date in YYYY-MM-DD format"
+                    "description": "The check-out date in YYYY-MM-DD format",
                 }
             },
             "required": ["check_in", "check_out"]
