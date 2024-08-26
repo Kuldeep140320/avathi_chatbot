@@ -90,17 +90,15 @@ def present_room_options(chatbot):
 
 def select_room_or_package(chatbot, room_selection):
     selected_room = None
-    try:
-        # Check if user input is a number
-        selection = int(room_selection) - 1
-        if 0 <= selection < len(chatbot.price_data):
-            selected_room = chatbot.price_data[selection]
-    except ValueError:
-        # If not a number, try to match by name
-        for room in chatbot.price_data:
-            if fuzz.ratio(room_selection.lower(), room['ticket_name'].lower()) > 80:
-                selected_room = room
-                break
+    if not chatbot.price_data:
+        return None
+    options = "\n".join([f"{exp['ticket_id']}: {exp['ticket_name']}" for exp in chatbot.price_data])
+    selected_room_id = select_single_option(chatbot, room_selection,options)
+    for room in chatbot.price_data:
+        # if fuzz.ratio(room_selection.lower(), room['ticket_name'].lower()) > 80:
+        if str(selected_room_id).strip() == str(room['ticket_id']):
+            selected_room = room
+            break
     
     if selected_room:
         chatbot.selected_room = selected_room
