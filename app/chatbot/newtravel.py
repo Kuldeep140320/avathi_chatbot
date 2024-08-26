@@ -118,7 +118,7 @@ def set_occupancy(chatbot, adults, children):
     payload = {
         "eoexperience_primary_key": chatbot.experience_id,
         "total_amount": "0",
-        "eouser_primary_key": 8553,  # This seems to be a static value, consider making it dynamic if needed
+        "eouser_primary_key": "",  # This seems to be a static value, consider making it dynamic if needed
         "date_of_exp": chatbot.check_in,
         "end_date": chatbot.check_out,
         "ticket_details": [
@@ -140,46 +140,21 @@ def set_occupancy(chatbot, adults, children):
             }
         ],
         "txn_id": "AVATHI" + datetime.now().strftime("%y%m%d%H%M%S"),  # Generate a unique transaction ID
-        "universal_coupon_code": "staff"  # Consider making this dynamic if needed
+        "universal_coupon_code": ""  # Consider making this dynamic if needed
     }
-    
-    # Call the get_payment_total API
     price_response = APIUtils.get_payment_total(payload)
-    print(price_response)
     total_amount=price_response['data']['total_amount']
-    total_without_gst=price_response['data']['total_without_gst']
-    discount_coupon=price_response['data']['discount_coupon']
-    discount_amount=price_response['data']['discount_amount']
-    taxes=price_response['data']['taxes']
     get_payment_token=APIUtils.get_payment_token()
     token=get_payment_token['access_token']
     get_payment_link=APIUtils.get_payment_link(total_amount,token)
-    
     payment_link=get_payment_link['result']['paymentLink']
-    # print("\ngetpayment total :",price_response)
     if price_response.get("status") == "success":
         payment_data = price_response.get("data")
+        if payment_link:
+            payment_data['payment_link']=payment_link
         chatbot.payment_data = payment_data  # Store the payment data in the chatbot object
         message = f"Great! Here's a summary of your booking:\n"
-        message += f"Room: {chatbot.selected_room['ticket_name']}\n"
-        message += f"Check-in: {chatbot.check_in}\n"
-        message += f"Check-out: {chatbot.check_out}\n"
-        message += f"Guests: {chatbot.adults} adults, {chatbot.children} children\n"
-        message += f"Amount: INR{total_without_gst+discount_amount}\n"
-        message += f"Discount Amount: INR{discount_amount}\n"
-        message += f"Discount Coupon: INR{discount_coupon}\n"
-        message += f"Included taxes: INR{taxes}\n\n"
-        message += f"Total amount: INR{total_amount}\n"
-        
-        if payment_link:
-            message += f"To complete your booking, please make payment:\n {payment_link}\n\n"
-        
-        # message += "Would you like to confirm this booking or make any changes?"
-        
         chatbot.chat_history.add_ai_message(message)
-        # if discount_amount > 0:
-        #     chatbot.chat_history.add_ai_message(f"Discount applied: ${discount_amount}")
-        
         return "Would you like to confirm this booking or make any changes?"
     else:
         chatbot.chat_history.add_ai_message("I'm sorry, but there was an error calculating the total price for your stay. Would you like to try again or make any changes to your booking?")
@@ -389,7 +364,12 @@ def set_dates(chatbot, arguments):
         if chatbot.experience_id:
             price_info = get_price(chatbot)
             if price_info:
-                chatbot.chat_history.add_ai_message(f"Thank you. I've set your check-in date to {check_in} and check-out date to {check_out}. \nPlease select a room from the options.")
+                check_in_obj = datetime.strptime(check_in, '%Y-%m-%d')
+                check_out_obj = datetime.strptime(check_out, '%Y-%m-%d')
+                check_in_obj = check_in_obj.strftime('%d %B %Y')
+                check_out_obj = check_out_obj.strftime('%d %B %Y')
+                
+                chatbot.chat_history.add_ai_message(f"Thank you. I've set your check-in date to {check_in_obj} and check-out date to {check_out_obj}. \nPlease select a room from the options.")
             else:
                 chatbot.chat_history.add_ai_message(f"Thank you. I've set your check-in date to {check_in} and check-out date to {check_out}. However, I couldn't retrieve the price for these dates. Would you like to try different dates?")
         else:
