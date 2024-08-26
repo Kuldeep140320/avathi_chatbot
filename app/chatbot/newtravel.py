@@ -267,6 +267,13 @@ def process_experience_selection(chatbot, user_input):
             chatbot.possible_experiences = None
             chatbot.chat_history.add_ai_message(f"Great! You've selected {chatbot.experience_name}. When would you like to check in and check out?")
             chatbot.date_picker = True
+            chatbot.check_in = None
+            chatbot.check_out = None
+            chatbot.selected_room = None
+            chatbot.adults = None
+            chatbot.children = None
+            chatbot.payment_data = None
+            chatbot.price_data = None
             return chatbot.get_most_recent_message(), chatbot.get_booking_state(), convert_chat_history_to_messages(chatbot.chat_history)
     
     chatbot.chat_history.add_ai_message("I'm sorry, I couldn't match your input to any of the available experiences. Could you please try again? You can type the name of the experience you're interested in.")
