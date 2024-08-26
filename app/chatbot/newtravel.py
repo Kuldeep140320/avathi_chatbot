@@ -369,7 +369,7 @@ def set_dates(chatbot, arguments):
                 check_in_obj = check_in_obj.strftime('%d %B %Y')
                 check_out_obj = check_out_obj.strftime('%d %B %Y')
                 
-                chatbot.chat_history.add_ai_message(f"Thank you. I've set your check-in date to {check_in_obj} and check-out date to {check_out_obj}. \nPlease select a room from the options.")
+                chatbot.chat_history.add_ai_message(f"Thank you. I've set your dates : \nCheck-in : {check_in_obj} \nCheck-out : {check_out_obj}. \nPlease select a room from the options.")
             else:
                 chatbot.chat_history.add_ai_message(f"Thank you. I've set your check-in date to {check_in} and check-out date to {check_out}. However, I couldn't retrieve the price for these dates. Would you like to try different dates?")
         else:
