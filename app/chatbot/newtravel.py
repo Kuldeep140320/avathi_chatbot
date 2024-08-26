@@ -223,9 +223,58 @@ def initialize_chat():
     chat_history.add_message(AIMessage(content=ai_message))
     # print('\nini chat_history : ' ,chat_history)
     return BookingRequest(chat_history, llm)
+def select_single_option(chatbot, user_input,options):
+    prompt = f"""Given the following list of experiences:
+    {options}
+    And the user input: "{user_input}"
+
+    Determine which experience name the user input matches most closely. Consider partial matches and semantic similarity.
+
+    Your response should be only the id of the best matching experience. If there's no good match, respond with "None".
+
+    """
+    # Call the LLM (using OpenAI's API in this example)
+    response =chatbot.llm.chat.completions.create(
+        model="gpt-4o-mini",  # or whichever model you're using
+        messages=[
+            {"role": "system", "content": "You are an AI assistant helping to match user input to a list of experience names."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    selected_id = response.choices[0].message.content.strip()
+    return selected_id if selected_id != "None" else None
+def process_experience_selection(chatbot, user_input):
+    if not chatbot.possible_experiences:
+        return None
+    experience_options = "\n".join([f"{exp['id']}: {exp['name']}" for exp in chatbot.possible_experiences])
+    selected_id = select_single_option(chatbot, user_input,experience_options)
+        # try:
+        #     selection = int(user_input) - 1
+        #     if 0 <= selection < len(chatbot.possible_experiences):
+        #         selected_experience = chatbot.possible_experiences[selection]
+        # except ValueError:
+        #     for exp in chatbot.possible_experiences:
+        #         if fuzz.ratio(user_input.lower(), exp['name'].lower()) > 80:
+        #             selected_experience = exp
+        #             break
+    if selected_id:
+        selected_experience=None
+        for exp in chatbot.possible_experiences:
+            if str(exp['id']).strip() == str(selected_id):
+                selected_experience=exp
+                break
+        if selected_experience:
+            chatbot.experience_id = selected_experience['id']
+            chatbot.experience_name = selected_experience['name']
+            chatbot.possible_experiences = None
+            chatbot.chat_history.add_ai_message(f"Great! You've selected {chatbot.experience_name}. When would you like to check in and check out?")
+            chatbot.date_picker = True
+            return chatbot.get_most_recent_message(), chatbot.get_booking_state(), convert_chat_history_to_messages(chatbot.chat_history)
+    
+    chatbot.chat_history.add_ai_message("I'm sorry, I couldn't match your input to any of the available experiences. Could you please try again? You can type the name of the experience you're interested in.")
+    return chatbot.get_most_recent_message(), chatbot.get_booking_state(), convert_chat_history_to_messages(chatbot.chat_history)
 
 def run_booking_assistant(user_input, chatbot=None):
-    # print('\n chatbot new :', chatbot.get('chat_history', []))
     if not chatbot:
         chatbot = initialize_chat()
     elif isinstance(chatbot, dict):
@@ -243,26 +292,7 @@ def run_booking_assistant(user_input, chatbot=None):
         chatbot = new_chatbot
     chatbot.chat_history.add_user_message(user_input)
     if chatbot.possible_experiences:
-        selected_experience = None
-        try:
-            # Check if user input is a number
-            selection = int(user_input) - 1
-            if 0 <= selection < len(chatbot.possible_experiences):
-                selected_experience = chatbot.possible_experiences[selection]
-        except ValueError:
-            # If not a number, try to match by name
-            for exp in chatbot.possible_experiences:
-                if fuzz.ratio(user_input.lower(), exp['name'].lower()) > 80:
-                    selected_experience = exp
-                    break
-        if selected_experience:
-            chatbot.experience_id = selected_experience['id']
-            chatbot.experience_name = selected_experience['name']
-            chatbot.possible_experiences = None
-            chatbot.chat_history.add_ai_message(f"Great! You've selected {chatbot.experience_name}. When would you like to check in and check out?")
-            chatbot.date_picker=True
-            # chatbot.clear_options()
-            return chatbot.get_most_recent_message(), chatbot.get_booking_state(),convert_chat_history_to_messages(chatbot.chat_history)
+        return process_experience_selection(chatbot, user_input)
     ai_response = chatbot.llm.chat.completions.create(
         model="gpt-4o-mini",
         messages=convert_chat_history_to_messages(chatbot.chat_history),
@@ -289,24 +319,62 @@ def run_booking_assistant(user_input, chatbot=None):
         # next_ai_message(chatbot)
         
     return chatbot.get_most_recent_message(), chatbot.get_booking_state() ,convert_chat_history_to_messages(chatbot.chat_history)
+from openai import OpenAI
 
+client = OpenAI()  # Make sure to set your API key in the environment variable OPENAI_API_KEY
+
+def select_relevant_experiences(chatbot,user_query, possible_experiences):
+    experience_options = "\n".join([f"{exp['id']}: {exp['name']}" for exp in possible_experiences])
+    prompt = f"""Given the following list of experiences:
+    {experience_options}
+    And the user query: "{user_query}"
+    Your task:
+    1. Determine which experiences are most relevant to the user's query.
+    2. Return only the IDs of the relevant experiences, separated by commas.
+    3. If there are no relevant experiences, return "None".
+
+    Your response should be in the format:
+    Relevant IDs: <comma-separated list of IDs or "None">
+    """
+    response = chatbot.llm.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are an AI assistant helping to select relevant travel experiences based on a user query."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    # Parse the LLM's response
+    llm_response = response.choices[0].message.content.strip()
+    relevant_ids = llm_response.split(": ")[1]
+
+    if relevant_ids == "None":
+        return []
+    else:
+        return [int(id.strip()) for id in relevant_ids.split(",")]
 def set_experience(chatbot, arguments):
     if isinstance(arguments, str):
         arguments = json.loads(arguments)
     experience_name = arguments.get("experience_name")
     possible_experiences = search_experiences(experience_name)
-    if len(possible_experiences) == 1:
-        chatbot.experience_id = possible_experiences[0]["id"]
-        chatbot.experience_name = possible_experiences[0]["name"]
-        chatbot.chat_history.add_ai_message(f"Great! I've found the experience: {chatbot.experience_name}. When would you like to check in and check out?")
-    elif len(possible_experiences) > 1:
-        chatbot.possible_experiences = possible_experiences
-        for i, exp in enumerate(possible_experiences):
-            chatbot.add_option(exp['name'])
-        chatbot.chat_history.add_ai_message(f"I found multiple options matching your request .Which one would you like to book? You can reply with the name of the experience or select.")
-    else:
+    
+    if not possible_experiences:
         chatbot.chat_history.add_ai_message("I'm sorry, I couldn't find any experiences matching your request. Could you please try a different search term?")
+        return
 
+    relevant_ids = select_relevant_experiences(chatbot,experience_name, possible_experiences)
+    relevant_experiences = [exp for exp in possible_experiences if (exp['id']) in relevant_ids]
+    if len(relevant_experiences) == 1:
+        chatbot.experience_id = relevant_experiences[0]["id"]
+        chatbot.experience_name = relevant_experiences[0]["name"]
+        chatbot.chat_history.add_ai_message(f"Great! I've found the experience: {chatbot.experience_name}. When would you like to check in and check out?")
+        chatbot.date_picker = True
+    elif len(relevant_experiences) > 1:
+        chatbot.possible_experiences = relevant_experiences
+        for exp in relevant_experiences:
+            chatbot.add_option(exp['name'])
+        chatbot.chat_history.add_ai_message(f"I found multiple options matching your request.Here are the options \nPlease reply with the name of the experience you're interested in.")
+    else:
+        chatbot.chat_history.add_ai_message("I'm sorry, I couldn't find any experiences closely matching your request. Could you please try a different search term or provide more details about what you're looking for?")
 def set_dates(chatbot, arguments):
     check_in = arguments.get("check_in")
     check_out = arguments.get("check_out")
