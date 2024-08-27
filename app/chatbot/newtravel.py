@@ -8,7 +8,7 @@ import sys,os
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import json
 # Assume these are imported from your existing codebase
-from utils.vector_store import retriever
+from app.utils.vector_store import retriever
 from routes.api import APIUtils
 from app.config import OPENAI_API_KEY
 # Replace with your actual OpenAI API key
