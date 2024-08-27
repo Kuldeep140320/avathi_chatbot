@@ -304,9 +304,9 @@ def initialize_chat():
     1. Get the experience (room) the user wants to book.
     2. Confirm the check-in and check-out dates.
     3. Help the user make decisions and provide information about available options.
-
-    Use the provided functions to update the booking information and retrieve necessary data.
-    Do not generate any bookings or confirmations yourself. Your role is to collect information and assist the user.
+    
+    Only respond to queries related to booking information. Do not initiate any 
+    new bookings or confirmations yourself. Your role is strictly to assist and provide relevant booking details.
     """
     chat_history.add_message(SystemMessage(content=system_message))
 
