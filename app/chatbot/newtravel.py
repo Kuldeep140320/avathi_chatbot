@@ -178,8 +178,7 @@ def calculate_price_and_payment(chatbot):
         create_payment=APIUtils.create_payment(create_payment_payload,chatbot.user_auth['access_token'])
         take_payment=create_payment['data']['take_payment']
         success=create_payment['data']['success']
-        print(take_payment,success)
-        if take_payment and not success:
+        if take_payment and  success:
             total_amount=create_payment['data']['total_amount']
             get_payment_token=APIUtils.get_payment_token()
             token=get_payment_token['access_token']
@@ -187,7 +186,6 @@ def calculate_price_and_payment(chatbot):
             payment_link=get_payment_link['result']['paymentLink']
             payment_data['payment_link'] =payment_link
             chatbot.payment_data = payment_data
-            
             message =chatbot.get_most_recent_message()
             message += f"\nGreat! Here's a summary of your booking:\n Click on the given link to make payment"
             chatbot.chat_history.add_ai_message(message)
