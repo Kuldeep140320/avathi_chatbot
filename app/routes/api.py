@@ -25,6 +25,8 @@ class APIUtils:
             'Origin': 'http://159.65.156.66',
             'Referer': 'http://159.65.156.66/',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+            "Cookie": "session=y7wgIIY1w9zgZpzWbDovjpxd3CUlIuKVIad9w4RuYLM",
+
         }
     @staticmethod
     def _get_headers_payu():
@@ -117,21 +119,17 @@ class APIUtils:
 
     @classmethod
     def get_payment_total(cls, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        return cls.make_api_call('getPaymentTotal', payload)      
-    # def get_payment_total(self, exp_id: str, check_in: str, check_out: Optional[str]) -> Optional[Dict[str, Any]]:
-    #     # Map new arguments to the required payload structure
-    #     data = {
-    #         'eoexperience_primary_key': exp_id,
-    #         'total_amount': "0",  # Assuming you always start with a total amount of "0"
-    #         'eouser_primary_key': self.user_primary_key,  # Assuming the user primary key is stored in the instance
-    #         'date_of_exp': check_in,
-    #         'end_date': check_out,
-    #         'ticket_details': self.get_ticket_details(),  # Assuming there's a method to retrieve ticket details
-    #         'txn_id': self.generate_txn_id(),  # Assuming there's a method to generate or retrieve a transaction ID
-    #         'universal_coupon_code': self.get_universal_coupon_code()  # Assuming there's a method to retrieve a coupon code
-    #     }
-        
-    #     return self.make_api_call('getPaymentTotal', data)
+        return cls.make_api_call('getPaymentTotal', payload)     
+    
+    @classmethod
+    def create_payment(cls,payload: Dict[str, Any],token):
+        url=f"{cls.BASE_URL}/experience/createPayment"
+        headers = cls._get_headers()
+        headers['Authorization'] = f'Bearer {token}'
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        return response.json()
+ 
 
 
 
