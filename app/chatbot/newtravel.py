@@ -93,7 +93,7 @@ class BookingRequest:
         }
 def present_room_options(chatbot):
     for room in chatbot.price_data:
-        chatbot.add_option(f"{room['ticket_name']} ( INR {room['price_per_ticket_with_tax']} per night )")
+        chatbot.add_option(f"{room['ticket_name']}")
     return chatbot
 
 def select_room_or_package(chatbot, room_selection):
