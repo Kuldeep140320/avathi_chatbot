@@ -5,14 +5,14 @@ from datetime import datetime
 import re
 from fuzzywuzzy import fuzz
 import sys,os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import json
 # Assume these are imported from your existing codebase
 from utils.vector_store import retriever
 from routes.api import APIUtils
-
+from app.config import OPENAI_API_KEY
 # Replace with your actual OpenAI API key
-openai.api_key = "your-openai-api-key"
+openai.api_key = OPENAI_API_KEY
 
 class BookingRequest:
     def __init__(self, chat_history, llm):
@@ -34,9 +34,12 @@ class BookingRequest:
         self.options=[]
         self.date_picker=False
         self.guest_type=False
+        self.current_step=None
+        self.show_login_popup=False
+        self.user_id=None
         
-        
-        
+    def set_current_step(self,current_step):
+        self.current_step=current_step
     def get_chat_history(self):
         return self.chat_history
     def update_from_dict(self, data):
@@ -57,6 +60,9 @@ class BookingRequest:
         self.options = []
         self.date_picker=False
         self.guest_type=False
+        self.current_step=data.get('current_step')
+        self.show_login_popup=False
+        self.user_id=data.get('user_id')
     def add_option(self, option):
         self.options.append(option)
     def clear_options(self):
@@ -80,8 +86,10 @@ class BookingRequest:
             "children": self.children,
             "payment_data": self.payment_data,
             "date_picker":self.date_picker,
-            "guest_type":self.guest_type
-
+            "guest_type":self.guest_type,
+            "current_step":self.current_step,
+            "show_login_popup":self.show_login_popup,
+            "user_id":self.user_id
         }
 def present_room_options(chatbot):
     for room in chatbot.price_data:
@@ -106,33 +114,27 @@ def select_room_or_package(chatbot, room_selection):
     else:
         chatbot.chat_history.add_ai_message("I'm sorry, I couldn't find a room matching your selection. Could you please try again?")
         return present_room_options(chatbot)
-def set_occupancy(chatbot, adults, children):
-    max_occupancy = chatbot.selected_room['max_occupants_per_room']
-    total_guests = adults + children
-    if total_guests > max_occupancy:
-        chatbot.chat_history.add_ai_message(f"I'm sorry, but the total number of guests ({total_guests}) exceeds the maximum occupancy ({max_occupancy}) for this room. Would you like to select a different room or adjust the number of guests?")
-        return "Please choose to either 'select another room' or 'adjust guests'."
-    chatbot.adults = adults
-    chatbot.children = children
+    
+def calculate_price_and_payment(chatbot):
     # Prepare the payload for the get_payment_total API call
     payload = {
         "eoexperience_primary_key": chatbot.experience_id,
         "total_amount": "0",
-        "eouser_primary_key": "",  # This seems to be a static value, consider making it dynamic if needed
+        "eouser_primary_key":chatbot.user_id,  # This seems to be a static value, consider making it dynamic if needed
         "date_of_exp": chatbot.check_in,
         "end_date": chatbot.check_out,
         "ticket_details": [
             {
                 "ticket_id": chatbot.selected_room['ticket_id'],
-                "max_occupants_per_room": max_occupancy,
+                "max_occupants_per_room": chatbot.selected_room['max_occupants_per_room'],
                 "guest_type": [
                     {
-                        "qty": adults,
+                        "qty": chatbot.adults,
                         "price": next(guest['price_per_ticket'] for guest in chatbot.selected_room['guests'] if guest['type'] == 1),
                         "type": 1,
                     },
                     {
-                        "qty": children,
+                        "qty": chatbot.children,
                         "price": next(guest['price_per_ticket'] for guest in chatbot.selected_room['guests'] if guest['type'] == 2),
                         "type": 2,
                     }
@@ -142,6 +144,8 @@ def set_occupancy(chatbot, adults, children):
         "txn_id": "AVATHI" + datetime.now().strftime("%y%m%d%H%M%S"),  # Generate a unique transaction ID
         "universal_coupon_code": ""  # Consider making this dynamic if needed
     }
+    
+    # Call the get_payment_total API
     price_response = APIUtils.get_payment_total(payload)
     total_amount=price_response['data']['total_amount']
     get_payment_token=APIUtils.get_payment_token()
@@ -153,12 +157,90 @@ def set_occupancy(chatbot, adults, children):
         if payment_link:
             payment_data['payment_link']=payment_link
         chatbot.payment_data = payment_data  # Store the payment data in the chatbot object
-        message = f"Great! Here's a summary of your booking:\n"
+        message =chatbot.get_most_recent_message()
+        message += f"\nGreat! Here's a summary of your booking:\n"
         chatbot.chat_history.add_ai_message(message)
         return "Would you like to confirm this booking or make any changes?"
     else:
         chatbot.chat_history.add_ai_message("I'm sorry, but there was an error calculating the total price for your stay. Would you like to try again or make any changes to your booking?")
         return "Please let me know if you want to try again or make changes."
+    
+    
+    
+def set_occupancy(chatbot, adults, children):
+    max_occupancy = chatbot.selected_room['max_occupants_per_room']
+    total_guests = adults + children
+    if total_guests > max_occupancy:
+        chatbot.chat_history.add_ai_message(f"I'm sorry, but the total number of guests ({total_guests}) exceeds the maximum occupancy ({max_occupancy}) for this room. Would you like to select a different room or adjust the number of guests?")
+        return "Please choose to either 'select another room' or 'adjust guests'."
+    
+    chatbot.adults = adults
+    chatbot.children = children
+    
+    message = f"Great! You've selected {adults} adult{'s' if adults > 1 else ''} and {children} child{'ren' if children > 1 else ''}.\n"
+    # chatbot.chat_history.add_ai_message(message)
+    if not chatbot.user_id:
+        message += f"Would you like to log in to get discount prices? If yes, I'll need your phone number."
+        chatbot.set_current_step('login_prompt')
+        chatbot.chat_history.add_ai_message(message)
+    else:
+        chatbot.chat_history.add_ai_message(message)
+        calculate_price_and_payment(chatbot)
+    return "Please respond with 'yes' if you'd like to log in, or 'no' to continue without logging in."
+
+# def set_occupancy(chatbot, adults, children):
+#     max_occupancy = chatbot.selected_room['max_occupants_per_room']
+#     total_guests = adults + children
+#     if total_guests > max_occupancy:
+#         chatbot.chat_history.add_ai_message(f"I'm sorry, but the total number of guests ({total_guests}) exceeds the maximum occupancy ({max_occupancy}) for this room. Would you like to select a different room or adjust the number of guests?")
+#         return "Please choose to either 'select another room' or 'adjust guests'."
+#     chatbot.adults = adults
+#     chatbot.children = children
+#     # Prepare the payload for the get_payment_total API call
+#     payload = {
+#         "eoexperience_primary_key": chatbot.experience_id,
+#         "total_amount": "0",
+#         "eouser_primary_key": "",  # This seems to be a static value, consider making it dynamic if needed
+#         "date_of_exp": chatbot.check_in,
+#         "end_date": chatbot.check_out,
+#         "ticket_details": [
+#             {
+#                 "ticket_id": chatbot.selected_room['ticket_id'],
+#                 "max_occupants_per_room": max_occupancy,
+#                 "guest_type": [
+#                     {
+#                         "qty": adults,
+#                         "price": next(guest['price_per_ticket'] for guest in chatbot.selected_room['guests'] if guest['type'] == 1),
+#                         "type": 1,
+#                     },
+#                     {
+#                         "qty": children,
+#                         "price": next(guest['price_per_ticket'] for guest in chatbot.selected_room['guests'] if guest['type'] == 2),
+#                         "type": 2,
+#                     }
+#                 ]
+#             }
+#         ],
+#         "txn_id": "AVATHI" + datetime.now().strftime("%y%m%d%H%M%S"),  # Generate a unique transaction ID
+#         "universal_coupon_code": ""  # Consider making this dynamic if needed
+#     }
+#     price_response = APIUtils.get_payment_total(payload)
+#     total_amount=price_response['data']['total_amount']
+#     get_payment_token=APIUtils.get_payment_token()
+#     token=get_payment_token['access_token']
+#     get_payment_link=APIUtils.get_payment_link(total_amount,token)
+#     payment_link=get_payment_link['result']['paymentLink']
+#     if price_response.get("status") == "success":
+#         payment_data = price_response.get("data")
+#         if payment_link:
+#             payment_data['payment_link']=payment_link
+#         chatbot.payment_data = payment_data  # Store the payment data in the chatbot object
+#         message = f"Great! Here's a summary of your booking:\n"
+#         chatbot.chat_history.add_ai_message(message)
+#         return "Would you like to confirm this booking or make any changes?"
+#     else:
+#         chatbot.chat_history.add_ai_message("I'm sorry, but there was an error calculating the total price for your stay. Would you like to try again or make any changes to your booking?")
+#         return "Please let me know if you want to try again or make changes."
 
 def ask_for_occupancy(chatbot):
     max_occupancy = chatbot.selected_room['max_occupants_per_room']
@@ -254,6 +336,48 @@ def process_experience_selection(chatbot, user_input):
     chatbot.chat_history.add_ai_message("I'm sorry, I couldn't match your input to any of the available experiences. Could you please try again? You can type the name of the experience you're interested in.")
     return chatbot.get_most_recent_message(), chatbot.get_booking_state(), convert_chat_history_to_messages(chatbot.chat_history)
 
+def interpret_user_response(chatbot,user_input):
+    prompt = f"""Given the user's response: "{user_input}"
+
+    Determine if this response is affirmative (yes) or negative (no).
+    Consider various ways of expressing agreement or disagreement, including informal language.
+
+    Your response should be only "yes" or "no".
+    If the intent is unclear, respond with "unclear".
+    """
+
+    try:
+        response = chatbot.llm.chat.completions.create(
+            model="gpt-4o-mini",  # or whichever model you're using
+            messages=[
+                {"role": "system", "content": "You are an AI assistant interpreting user responses as yes or no."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        interpretation = response.choices[0].message.content.strip().lower()
+        
+        if interpretation in ["yes", "no"]:
+            return interpretation
+        else:
+            return "unclear"
+    except Exception as e:
+        print(f"Error in interpret_user_response: {str(e)}")
+        return "unclear"
+def process_login_response(chatbot, user_input):
+    response = interpret_user_response(chatbot,user_input)
+    print('\nresponse:',response)
+    if response == "yes":
+        chatbot.chat_history.add_ai_message("Great! Please enter log in Details.")
+        chatbot.show_login_popup=True
+        return "Please provide your phone number."
+    elif response == "no":
+        chatbot.chat_history.add_ai_message("No problem. We'll continue without logging in.")
+        chatbot.show_login_popup=False
+        return calculate_price_and_payment(chatbot)
+    else:
+        chatbot.chat_history.add_ai_message("I'm not sure if you want to log in or not. Could you please clarify?")
+        return "Please respond with 'yes' if you'd like to log in for discounts, or 'no' to continue without logging in."
 def run_booking_assistant(user_input, chatbot=None):
     if not chatbot:
         chatbot = initialize_chat()
@@ -273,6 +397,10 @@ def run_booking_assistant(user_input, chatbot=None):
     chatbot.chat_history.add_user_message(user_input)
     if chatbot.possible_experiences:
         return process_experience_selection(chatbot, user_input)
+    
+    if chatbot.current_step == 'login_prompt':
+        process_login_response(chatbot, user_input)
+        return chatbot.get_most_recent_message(), chatbot.get_booking_state() ,convert_chat_history_to_messages(chatbot.chat_history)
     ai_response = chatbot.llm.chat.completions.create(
         model="gpt-4o-mini",
         messages=convert_chat_history_to_messages(chatbot.chat_history),
@@ -299,9 +427,9 @@ def run_booking_assistant(user_input, chatbot=None):
         # next_ai_message(chatbot)
         
     return chatbot.get_most_recent_message(), chatbot.get_booking_state() ,convert_chat_history_to_messages(chatbot.chat_history)
-from openai import OpenAI
+# from openai import OpenAI
 
-client = OpenAI()  # Make sure to set your API key in the environment variable OPENAI_API_KEY
+# client = OpenAI()  # Make sure to set your API key in the environment variable OPENAI_API_KEY
 
 def select_relevant_experiences(chatbot,user_query, possible_experiences):
     experience_options = "\n".join([f"{exp['id']}: {exp['name']}" for exp in possible_experiences])
@@ -366,8 +494,8 @@ def set_dates(chatbot, arguments):
             if price_info:
                 check_in_obj = datetime.strptime(check_in, '%Y-%m-%d')
                 check_out_obj = datetime.strptime(check_out, '%Y-%m-%d')
-                check_in_obj = check_in_obj.strftime('%d %B %Y')
-                check_out_obj = check_out_obj.strftime('%d %B %Y')
+                check_in_obj = check_in_obj.strftime('%d %b %Y')
+                check_out_obj = check_out_obj.strftime('%d %b %Y')
                 
                 chatbot.chat_history.add_ai_message(f"Thank you. I've set your dates : \nCheck-in : {check_in_obj} \nCheck-out : {check_out_obj}. \nPlease select a room from the options.")
             else:
