@@ -9,7 +9,7 @@ import sys,os
 import json
 # Assume these are imported from your existing codebase
 from app.utils.vector_store import retriever
-from routes.api import APIUtils
+from app.routes.api import APIUtils
 from app.config import OPENAI_API_KEY
 # Replace with your actual OpenAI API key
 openai.api_key = OPENAI_API_KEY
