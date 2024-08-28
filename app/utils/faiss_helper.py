@@ -38,6 +38,7 @@ def fetch_data_from_table(table_name: str) -> pd.DataFrame:
         e.address,
         e.is_active AS eoexperience_is_active,
         e.is_stay,
+        e.is_event,
         e.price,
         e.faqs AS eoexperience_faqs,
         e.eoproperty_primary_key,
@@ -47,6 +48,7 @@ def fetch_data_from_table(table_name: str) -> pd.DataFrame:
         e.question,
         e.display_priority AS eoexperience_display_priority,
         e.expert_summery,
+        e.deleted_at,
         e.things_to_note,
         e.things_to_do,
         e.short_name,
@@ -72,7 +74,8 @@ def fetch_data_from_table(table_name: str) -> pd.DataFrame:
         e.is_active = TRUE AND 
         l.is_active = TRUE AND 
         p.is_active = TRUE AND
-        e.display_priority < 50 
+        e.deleted_at is null
+        
     ORDER BY 
         e.primary_key ASC;
     """
@@ -84,19 +87,23 @@ def create_documents_from_db(table_name: str, fields: List[str]) -> List[Documen
     # print(table_name,fields)
     # sys.exit()
     df = fetch_data_from_table(table_name)
-    # print(df)
+    # print(len(df))
     # sys.exit()
     chunk_size = 1500
     documents = []
     
     for _, row in df.iterrows():
+        if row['short_name'] is not None and row['short_name'] != '':
+            name = row['short_name']
+        else:
+            name = row['eoexperience_name'] 
         content = (
-            f"Name: {row['eoexperience_name']}"
+            f"Name: {name}"
             # f"Location name: {clean_html(row['description'])}\n"
             # f"Name: {row['name']}"
-            f"Place Title: {clean_html(row['location'])}"
-            f"Description: {clean_html(row['address'])}"
-            f"lkdestination_name: {row['lkdestination_name']}"
+            # f"Place Title: {clean_html(row['location'])}"
+            f"Address: {clean_html(row['address'])}"
+            f"Destination Name: {row['lkdestination_name']}"
             # f"Location: {clean_html(row['price'])}"
             # f"place_title: {clean_html(row['place_title'])}\n"
             # f"Is Stay: {'Yes' if row['is_stay'] else 'No'}"
@@ -130,8 +137,9 @@ def create_documents_from_db(table_name: str, fields: List[str]) -> List[Documen
                 page_content=chunk,
                 metadata={
                     "eoexperience_primary_key": row['eoexperience_primary_key'],
-                    "eoexperience_name": row['eoexperience_name'],
-                    # "lkdestination_primary_key": row['location'],
+                    "eoexperience_name": name,
+                    "is_stay": True if row['is_stay'] else False,
+                    "is_event": True if row['is_event'] else False,
                     "lkdestination_name": row['lkdestination_name'],
                     # "eoplace_primary_key": row['eoplace_primary_key'],
                     # "eoplace_lkdestination_primary_key": row['eoplace_lkdestination_primary_key'],
@@ -145,6 +153,9 @@ def create_documents_from_db(table_name: str, fields: List[str]) -> List[Documen
             # print(doc)
             # sys.exit()
             documents.append(doc)
+            
+    # print(documents)
+    # sys.exit()
     return documents
 
 def create_or_load_vector_store(docs: List[Document], store_path: str):
