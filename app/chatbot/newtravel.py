@@ -206,7 +206,7 @@ def calculate_price_and_payment(chatbot):
             payment_data['payment_link'] =payment_link
             chatbot.payment_data = payment_data
             message =chatbot.get_most_recent_message()
-            message += f"\nGreat! Here's a summary of your booking:"
+            message += f"Great! Here's a summary of your booking:"
             chatbot.chat_history.add_ai_message(message)
             return "Would you like to confirm this booking or make any changes?"
 
@@ -273,7 +273,7 @@ def initialize_chat():
     3. Help the user make decisions and provide information about available options.
     
     Only respond to queries related to booking information. Do not initiate any 
-    new bookings or confirmations yourself. Your role is strictly to assist and provide relevant booking details.
+    bookings process yourself call the funcations. Your role is strictly to assist and provide relevant booking details.
     """
     chat_history.add_message(SystemMessage(content=system_message))
 
@@ -423,13 +423,20 @@ def run_booking_assistant(user_input, chatbot=None):
             select_room_or_package(chatbot, room_selection,selected_room)
             return chatbot.get_most_recent_message(), chatbot.get_booking_state() ,convert_chat_history_to_messages(chatbot.chat_history)
             
-    
-    ai_response = chatbot.llm.chat.completions.create(
+    if chatbot.current_step == 'set_dates':
+        ai_response = chatbot.llm.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=convert_chat_history_to_messages(chatbot.chat_history),
+            functions=[next(f for f in functions if f['name'] == 'set_dates')],  # Only provide the set_dates function
+            function_call={"name": "set_dates"} 
+        )
+    else:
+        ai_response = chatbot.llm.chat.completions.create(
         model="gpt-4o-mini",
         messages=convert_chat_history_to_messages(chatbot.chat_history),
         functions=functions,
         function_call="auto"
-    )
+        )
     if ai_response.choices[0].message.content:
         chatbot.chat_history.add_ai_message(ai_response.choices[0].message.content)
     elif ai_response.choices[0].message.function_call:
@@ -563,41 +570,7 @@ def next_ai_message(chatbot):
         chatbot.chat_history.add_ai_message(f"I found these options matching your request:\n{options}\nWhich one would you like to book? You can reply with the number or the name of the experience.")
     elif not chatbot.experience_id:
         chatbot.chat_history.add_ai_message("What kind of experience or room are you looking for?")
-    elif not chatbot.check_in or not chatbot.check_out:
-        chatbot.chat_history.add_ai_message("When would you like to check in and check out?")
-    elif not chatbot.selected_room:
-        # print('\nchatbot.room_options',chatbot.room_options)
-        if chatbot.room_options:
-            room_options = "\n".join([f"{i+1}. {room['ticket_name']} - ${room['price_per_ticket_with_tax']} per night" for i, room in enumerate(chatbot.room_options)])
-            chatbot.chat_history.add_ai_message(f"Here are the available room options nexit ai reso:\n{room_options}\nWhich room would you like to book? You can reply with the number or the name of the room.")
-        else:
-            chatbot.chat_history.add_ai_message("I'm sorry, but I couldn't find any room options for the selected dates. Would you like to try different dates?")
-    elif not chatbot.adults or not chatbot.children:
-        chatbot.chat_history.add_ai_message(f"How many adults and children will be staying? (Maximum {chatbot.selected_room['max_occupants_per_room']} guests in total)")
-    elif not chatbot.is_ready:
-        if chatbot.payment_data:
-            total_amount = chatbot.payment_data.get("total_amount")
-            taxes = chatbot.payment_data.get("taxes")
-            payment_link = chatbot.payment_data.get("paymentLink")
-            
-            message = f"Great! Here's a summary of your booking:\n"
-            message += f"Room: {chatbot.selected_room['ticket_name']}\n"
-            message += f"Check-in: {chatbot.check_in}\n"
-            message += f"Check-out: {chatbot.check_out}\n"
-            message += f"Guests: {chatbot.adults} adults, {chatbot.children} children\n"
-            message += f"Total amount: ${total_amount}\n"
-            message += f"Included taxes: ${taxes}\n\n"
-            
-            if payment_link:
-                message += f"To complete your booking, please use this payment link: {payment_link}\n\n"
-            
-            message += "Would you like to confirm this booking or make any changes?"
-            
-            chatbot.chat_history.add_ai_message(message)
-        else:
-            chatbot.chat_history.add_ai_message("Would you like me to calculate the total price for your stay?")
-    else:
-        chatbot.chat_history.add_ai_message("Your booking is confirmed. Is there anything else I can help you with?")
+    
 def search_experiences(query):
     results = retriever.get_relevant_documents(query)
     return [{
