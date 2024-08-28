@@ -122,7 +122,6 @@ def select_room_or_package(chatbot, room_selection,selected_room = None):
     
 def calculate_price_and_payment(chatbot):
     # Prepare the payload for the get_payment_total API call
-    print("hii ho ")
     user_data = chatbot.user_auth
     if 'user_key' in user_data and user_data['user_key']:
         user_key=user_data['user_key']
@@ -220,7 +219,7 @@ def calculate_price_and_payment(chatbot):
     else:
         message =chatbot.get_most_recent_message()
         chatbot.show_login_popup=True
-        message += "\nGreat! Here's a summary of your booking:"
+        message += "Great! Here's a summary of your booking:"
         chatbot.chat_history.add_ai_message(message)
         return "Would you like to confirm this booking or make any changes?"
     
@@ -237,7 +236,7 @@ def set_occupancy(chatbot, adults, children):
     message = f"Great! You've selected {adults} adult{'s' if adults > 1 else ''} and {children} child{'ren' if children > 1 else ''}.\n"
     # chatbot.chat_history.add_ai_message(message)
     user_data=chatbot.user_auth
-    if 'user_key' not in user_data or user_data['user_key']:
+    if 'user_key' not in user_data and user_data['user_key']:
         message += f"Would you like to log in to get discount prices? If yes, click on the give link."
         chatbot.set_current_step('login_prompt')
         chatbot.chat_history.add_ai_message(message)
@@ -439,7 +438,7 @@ def run_booking_assistant(user_input, chatbot=None):
         arguments = json.loads(function_call.arguments)
         if function_name == "set_experience":
             set_experience(chatbot, arguments)
-        elif function_name == "set_date":
+        elif function_name == "set_dates":
             set_dates(chatbot, arguments)
         elif function_name == "select_room_or_package":
             select_room_or_package(chatbot, arguments.get("room_selection"))
@@ -656,7 +655,7 @@ functions = [
         }
     },
     {
-        "name": "set_date",
+        "name": "set_dates",
         "description": "Set the date(s) for the booking. If one date is provided, it's treated as an event date. If two dates are provided, they're treated as check-in and check-out dates for a stay. The earlier date will be set as check-in and the later as check-out. Dates should not be before today.",
         "parameters": {
             "type": "object",
