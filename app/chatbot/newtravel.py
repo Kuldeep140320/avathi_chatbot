@@ -184,16 +184,23 @@ def calculate_price_and_payment(chatbot):
                                 "qty": chatbot.adults,
                                 "price": next(guest['price_per_ticket'] for guest in chatbot.selected_room['guests'] if guest['type'] == 1),
                                 "type": 1,
-                            },
-                            {
-                                "qty": chatbot.children,
-                                "price": next(guest['price_per_ticket'] for guest in chatbot.selected_room['guests'] if guest['type'] == 2),
-                                "type": 2,
                             }
+                            # {
+                            #     "qty": chatbot.children,
+                            #     "price": next(guest['price_per_ticket'] for guest in chatbot.selected_room['guests'] if guest['type'] == 2),
+                            #     "type": 2,
+                            # }
                         ]
                     }
                 ]
             }
+        
+        if chatbot.is_stay:
+            create_payment_payload["ticket_details"][0]["guest_type"].append({
+                "qty": chatbot.children,
+                "price": next(guest['price_per_ticket'] for guest in chatbot.selected_room['guests'] if guest['type'] == 2),
+                "type": 2,
+            })
         create_payment=APIUtils.create_payment(create_payment_payload,chatbot.user_auth['access_token'])
         take_payment=create_payment['data']['take_payment']
         success=create_payment['data']['success']
@@ -517,8 +524,6 @@ def set_dates(chatbot, arguments):
     print(arguments)
     dates = arguments.get("dates", [])
     is_valid, error_message, check_in, check_out = validate_dates(chatbot, dates)
-    # check_in = arguments.get("check_in")
-    # check_out = arguments.get("check_out")
     print(check_in,check_out)
     if is_valid:
         chatbot.check_in = check_in
