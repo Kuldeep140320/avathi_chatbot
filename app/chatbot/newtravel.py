@@ -232,11 +232,10 @@ def set_occupancy(chatbot, adults, children):
     
     chatbot.adults = adults
     chatbot.children = children
-    
     message = f"Great! You've selected {adults} adult{'s' if adults > 1 else ''} and {children} child{'ren' if children > 1 else ''}.\n"
     # chatbot.chat_history.add_ai_message(message)
     user_data=chatbot.user_auth
-    if 'user_key' not in user_data and user_data['user_key']:
+    if not user_data['user_key']:
         message += f"Would you like to log in to get discount prices? If yes, click on the give link."
         chatbot.set_current_step('login_prompt')
         chatbot.chat_history.add_ai_message(message)
