@@ -33,6 +33,8 @@ class BookingRequest:
         self.guest_type=False
         self.current_step=None
         self.show_login_popup=False
+        self.is_stay=False
+        self.is_event=False
         self.user_auth={}
         
     def set_current_step(self,current_step):
@@ -60,6 +62,8 @@ class BookingRequest:
         self.current_step=data.get('current_step')
         self.show_login_popup=False
         self.user_auth=data.get('user_auth',{})
+        self.is_stay=data.get('is_stay')
+        self.is_event=data.get('is_event')
     def add_option(self, option):
         self.options.append(option)
     def clear_options(self):
@@ -86,7 +90,10 @@ class BookingRequest:
             "guest_type":self.guest_type,
             "current_step":self.current_step,
             "show_login_popup":self.show_login_popup,
-            "user_auth":self.user_auth
+            "user_auth":self.user_auth,
+            "is_event":self.is_event,
+            "is_stay":self.is_stay,
+            
         }
 def present_room_options(chatbot):
     for room in chatbot.price_data:
@@ -115,12 +122,18 @@ def select_room_or_package(chatbot, room_selection,selected_room = None):
     
 def calculate_price_and_payment(chatbot):
     # Prepare the payload for the get_payment_total API call
+    print("hii ho ")
+    user_data = chatbot.user_auth
+    if 'user_key' in user_data and user_data['user_key']:
+        user_key=user_data['user_key']
+    else:
+        user_key=""
     payload = {
         "eoexperience_primary_key": chatbot.experience_id,
         "total_amount": "0",
-        "eouser_primary_key":chatbot.user_auth['user_key'],  # This seems to be a static value, consider making it dynamic if needed
+        "eouser_primary_key":user_key,  # This seems to be a static value, consider making it dynamic if needed
         "date_of_exp": chatbot.check_in,
-        "end_date": chatbot.check_out,
+        "end_date": None,
         "ticket_details": [
             {
                 "ticket_id": chatbot.selected_room['ticket_id'],
@@ -130,24 +143,31 @@ def calculate_price_and_payment(chatbot):
                         "qty": chatbot.adults,
                         "price": next(guest['price_per_ticket'] for guest in chatbot.selected_room['guests'] if guest['type'] == 1),
                         "type": 1,
-                    },
-                    {
-                        "qty": chatbot.children,
-                        "price": next(guest['price_per_ticket'] for guest in chatbot.selected_room['guests'] if guest['type'] == 2),
-                        "type": 2,
                     }
+                    # {
+                    #     "qty": chatbot.children,
+                    #     "price": next(guest['price_per_ticket'] for guest in chatbot.selected_room['guests'] if guest['type'] == 2),
+                    #     "type": 2,
+                    # }
                 ]
             }
         ],
         "txn_id": "AVATHI" + datetime.now().strftime("%y%m%d%H%M%S"),  # Generate a unique transaction ID
         "universal_coupon_code": ""  # Consider making this dynamic if needed
     }
+    if chatbot.is_stay:
+        payload["ticket_details"][0]["guest_type"].append({
+            "qty": chatbot.children,
+            "price": next(guest['price_per_ticket'] for guest in chatbot.selected_room['guests'] if guest['type'] == 2),
+            "type": 2,
+        })
+        
     price_response = APIUtils.get_payment_total(payload)
     price_response['payment_link']=None
     payment_data = price_response.get("data")
     chatbot.payment_data = payment_data
     total_amount=price_response['data']['total_amount']
-    if chatbot.user_auth['user_key'] and chatbot.user_auth['access_token']:
+    if 'user_key' in user_data and chatbot.user_auth['user_key'] and chatbot.user_auth['access_token']:
         create_payment_payload={
                 "eoexperience_primary_key":chatbot.experience_id,
                 "date_of_exp": chatbot.check_in,
@@ -187,22 +207,25 @@ def calculate_price_and_payment(chatbot):
             payment_data['payment_link'] =payment_link
             chatbot.payment_data = payment_data
             message =chatbot.get_most_recent_message()
-            message += f"\nGreat! Here's a summary of your booking:\n Click on the given link to make payment"
+            message += f"\nGreat! Here's a summary of your booking:"
             chatbot.chat_history.add_ai_message(message)
             return "Would you like to confirm this booking or make any changes?"
 
         else:
             message =chatbot.get_most_recent_message()
-            message += "\nGreat! Here's a summary of your booking:\n Please login to check availability and get the payment link"
+            chatbot.show_login_popup=True
+            message += "\nGreat! Here's a summary of your booking:"
             chatbot.chat_history.add_ai_message(message)
             return "Would you like to confirm this booking or make any changes?"
     else:
-        chatbot.chat_history.add_ai_message("I'm sorry, but there was an error calculating the total price for your stay. Would you like to try again or make any changes to your booking?")
-        return "Please let me know if you want to try again or make changes."
+        message =chatbot.get_most_recent_message()
+        chatbot.show_login_popup=True
+        message += "\nGreat! Here's a summary of your booking:"
+        chatbot.chat_history.add_ai_message(message)
+        return "Would you like to confirm this booking or make any changes?"
     
 def set_occupancy(chatbot, adults, children):
     max_occupancy = 3
-    print("set_occumapny")
     total_guests = adults + children
     if total_guests > max_occupancy:
         chatbot.chat_history.add_ai_message(f"I'm sorry, but the total number of guests ({total_guests}) exceeds the maximum occupancy ({max_occupancy}) for this room. Would you like to select a different room or adjust the number of guests?")
@@ -214,9 +237,8 @@ def set_occupancy(chatbot, adults, children):
     message = f"Great! You've selected {adults} adult{'s' if adults > 1 else ''} and {children} child{'ren' if children > 1 else ''}.\n"
     # chatbot.chat_history.add_ai_message(message)
     user_data=chatbot.user_auth
-    print("\nhii",user_data['user_key'])
-    if not user_data['user_key']:
-        message += f"Would you like to log in to get discount prices? If yes, I'll need your phone number."
+    if 'user_key' not in user_data or user_data['user_key']:
+        message += f"Would you like to log in to get discount prices? If yes, click on the give link."
         chatbot.set_current_step('login_prompt')
         chatbot.chat_history.add_ai_message(message)
     else:
@@ -224,63 +246,9 @@ def set_occupancy(chatbot, adults, children):
         calculate_price_and_payment(chatbot)
     return "Please respond with 'yes' if you'd like to log in, or 'no' to continue without logging in."
 
-# def set_occupancy(chatbot, adults, children):
-#     max_occupancy = chatbot.selected_room['max_occupants_per_room']
-#     total_guests = adults + children
-#     if total_guests > max_occupancy:
-#         chatbot.chat_history.add_ai_message(f"I'm sorry, but the total number of guests ({total_guests}) exceeds the maximum occupancy ({max_occupancy}) for this room. Would you like to select a different room or adjust the number of guests?")
-#         return "Please choose to either 'select another room' or 'adjust guests'."
-#     chatbot.adults = adults
-#     chatbot.children = children
-#     # Prepare the payload for the get_payment_total API call
-#     payload = {
-#         "eoexperience_primary_key": chatbot.experience_id,
-#         "total_amount": "0",
-#         "eouser_primary_key": "",  # This seems to be a static value, consider making it dynamic if needed
-#         "date_of_exp": chatbot.check_in,
-#         "end_date": chatbot.check_out,
-#         "ticket_details": [
-#             {
-#                 "ticket_id": chatbot.selected_room['ticket_id'],
-#                 "max_occupants_per_room": max_occupancy,
-#                 "guest_type": [
-#                     {
-#                         "qty": adults,
-#                         "price": next(guest['price_per_ticket'] for guest in chatbot.selected_room['guests'] if guest['type'] == 1),
-#                         "type": 1,
-#                     },
-#                     {
-#                         "qty": children,
-#                         "price": next(guest['price_per_ticket'] for guest in chatbot.selected_room['guests'] if guest['type'] == 2),
-#                         "type": 2,
-#                     }
-#                 ]
-#             }
-#         ],
-#         "txn_id": "AVATHI" + datetime.now().strftime("%y%m%d%H%M%S"),  # Generate a unique transaction ID
-#         "universal_coupon_code": ""  # Consider making this dynamic if needed
-#     }
-#     price_response = APIUtils.get_payment_total(payload)
-#     total_amount=price_response['data']['total_amount']
-#     get_payment_token=APIUtils.get_payment_token()
-#     token=get_payment_token['access_token']
-#     get_payment_link=APIUtils.get_payment_link(total_amount,token)
-#     payment_link=get_payment_link['result']['paymentLink']
-#     if price_response.get("status") == "success":
-#         payment_data = price_response.get("data")
-#         if payment_link:
-#             payment_data['payment_link']=payment_link
-#         chatbot.payment_data = payment_data  # Store the payment data in the chatbot object
-#         message = f"Great! Here's a summary of your booking:\n"
-#         chatbot.chat_history.add_ai_message(message)
-#         return "Would you like to confirm this booking or make any changes?"
-#     else:
-#         chatbot.chat_history.add_ai_message("I'm sorry, but there was an error calculating the total price for your stay. Would you like to try again or make any changes to your booking?")
-#         return "Please let me know if you want to try again or make changes."
-
 def ask_for_occupancy(chatbot):
     max_occupancy = chatbot.selected_room['max_occupants_per_room']
-    chatbot.chat_history.add_ai_message(f"Great! You've selected the {chatbot.selected_room['ticket_name']}. This room can accommodate up to {max_occupancy} guests. Please provide the number of adults and children.")
+    chatbot.chat_history.add_ai_message(f"Great! You've selected the {chatbot.selected_room['ticket_name']}. Please provide the number of adults and children.")
     chatbot.guest_type=True
     return f"How many adults and children will be staying? (Maximum {max_occupancy} guests in total)"
 
@@ -358,7 +326,6 @@ def process_experience_selection(chatbot, user_input):
             chatbot.experience_id = selected_experience['id']
             chatbot.experience_name = selected_experience['name']
             chatbot.possible_experiences = None
-            chatbot.chat_history.add_ai_message(f"Great! You've selected {chatbot.experience_name}. When would you like to check in and check out?")
             chatbot.date_picker = True
             chatbot.check_in = None
             chatbot.check_out = None
@@ -367,7 +334,14 @@ def process_experience_selection(chatbot, user_input):
             chatbot.children = None
             chatbot.payment_data = None
             chatbot.price_data = None
+            chatbot.is_event=selected_experience['is_event']
+            chatbot.is_stay=selected_experience['is_stay']
             chatbot.current_step="set_dates"
+            if chatbot.is_event:
+                chatbot.chat_history.add_ai_message(f"Great! You've selected {chatbot.experience_name}. Please select the Date?")
+            else:
+                chatbot.chat_history.add_ai_message(f"Great! You've selected {chatbot.experience_name}. When would you like to check in and check out?")
+            
             return chatbot.get_most_recent_message(), chatbot.get_booking_state(), convert_chat_history_to_messages(chatbot.chat_history)
     
     chatbot.chat_history.add_ai_message("I'm sorry, I couldn't match your input to any of the available experiences. Could you please try again? You can type the name of the experience you're interested in.")
@@ -465,7 +439,7 @@ def run_booking_assistant(user_input, chatbot=None):
         arguments = json.loads(function_call.arguments)
         if function_name == "set_experience":
             set_experience(chatbot, arguments)
-        elif function_name == "set_dates":
+        elif function_name == "set_date":
             set_dates(chatbot, arguments)
         elif function_name == "select_room_or_package":
             select_room_or_package(chatbot, arguments.get("room_selection"))
@@ -531,38 +505,45 @@ def set_experience(chatbot, arguments):
     else:
         chatbot.chat_history.add_ai_message("I'm sorry, I couldn't find any experiences closely matching your request. Could you please try a different search term or provide more details about what you're looking for?")
 def set_dates(chatbot, arguments):
-    check_in = arguments.get("check_in")
-    check_out = arguments.get("check_out")
-    if validate_dates(check_in, check_out):
+    print(arguments)
+    dates = arguments.get("dates", [])
+    is_valid, error_message, check_in, check_out = validate_dates(chatbot, dates)
+    # check_in = arguments.get("check_in")
+    # check_out = arguments.get("check_out")
+    print(check_in,check_out)
+    if is_valid:
         chatbot.check_in = check_in
         chatbot.check_out = check_out
         if chatbot.experience_id:
             price_info = get_price(chatbot)
+            
+            print(price_info)
             if price_info:
-                check_in_obj = datetime.strptime(check_in, '%Y-%m-%d')
-                check_out_obj = datetime.strptime(check_out, '%Y-%m-%d')
-                check_in_obj = check_in_obj.strftime('%d %b %Y')
-                check_out_obj = check_out_obj.strftime('%d %b %Y')
-                chatbot.current_step="set_room"
                 
-                chatbot.chat_history.add_ai_message(f"Thank you. I've set your dates : \nCheck-in : {check_in_obj} \nCheck-out : {check_out_obj}. \nPlease select a room from the options.")
+                check_in_obj = datetime.strptime(check_in, '%Y-%m-%d')
+                check_in_obj = check_in_obj.strftime('%d %b %Y')
+                message = f"Thank you. I've set your dates :\nCheck-in : {check_in_obj}"
+                if chatbot.is_stay:
+                    check_out_obj = datetime.strptime(check_out, '%Y-%m-%d')
+                    check_out_obj = check_out_obj.strftime('%d %b %Y')
+                    message +=f"\nCheck-out : {check_out_obj}."
+                message +=f"\nPlease select a room from the options."
+                chatbot.current_step="set_room"
+                chatbot.chat_history.add_ai_message(message)
             else:
                 chatbot.chat_history.add_ai_message(f"Thank you. I've set your check-in date to {check_in} and check-out date to {check_out}. However, I couldn't retrieve the price for these dates. Would you like to try different dates?")
         else:
             chatbot.chat_history.add_ai_message(f"Thank you. I've set your check-in date to {check_in} and check-out date to {check_out}. Now, let's select an experience for your stay.")
-        # chatbot.check_in = check_in
-        # chatbot.check_out = check_out
-        # chatbot.chat_history.add_ai_message(f"Thank you. I've set your check-in date to {check_in} and check-out date to {check_out}. Would you like me to check the price for these dates?")
     else:
-        chatbot.chat_history.add_ai_message("I'm sorry, but the dates you provided are not valid. Please ensure that both the month and year are correct. Could you please provide the dates again?")
+        chatbot.chat_history.add_ai_message(f"I'm sorry, but the dates you provided are not valid. {error_message} Could you please provide the dates again?")
 
 def get_price(chatbot):
+    if chatbot.is_event:
+        chatbot.check_out=chatbot.check_in
     if chatbot.experience_id and chatbot.check_in and chatbot.check_out:
         price_response = APIUtils.get_price_by_date(chatbot.experience_id, chatbot.check_in, chatbot.check_out)
         if price_response.get("status") == "success":
             chatbot.price_data = price_response.get("data")
-            # chatbot.room_options = chatbot.price_data
-
             chatbot.chat_history.add_ai_message("I've found some room options for your stay. Let me list them for you:")
             return present_room_options(chatbot)
         else:
@@ -620,17 +601,45 @@ def next_ai_message(chatbot):
         chatbot.chat_history.add_ai_message("Your booking is confirmed. Is there anything else I can help you with?")
 def search_experiences(query):
     results = retriever.get_relevant_documents(query)
-    return [{"id": doc.metadata["eoexperience_primary_key"], "name": doc.metadata["eoexperience_name"]} for doc in results]
+    return [{
+        "id": doc.metadata["eoexperience_primary_key"],
+        "name": doc.metadata["eoexperience_name"],
+        "is_stay": doc.metadata["is_stay"],
+        "is_event": doc.metadata["is_event"],
+        
+        } for doc in results]
 
-def validate_dates(check_in, check_out):
+def validate_dates(chatbot, dates):
     try:
-        check_in_date = datetime.strptime(check_in, "%Y-%m-%d")
-        check_out_date = datetime.strptime(check_out, "%Y-%m-%d")
-        today = datetime.now()
-        return check_in_date < check_out_date and check_in_date >= today
+        today = datetime.now().date()
+        if len(dates) == 1 and chatbot.is_event:
+            check_in = datetime.strptime(dates[0], "%Y-%m-%d").date()
+            check_out = None
+            if check_in < today:
+                return False, "The event date cannot be in the past. Please provide a future date.", None, None
+        elif len(dates) == 2 and chatbot.is_stay:
+            check_in, check_out = sorted(datetime.strptime(date, "%Y-%m-%d").date() for date in dates)
+            if check_in < today:
+                return False, "The check-in date cannot be in the past. Please provide a future date.", None, None
+            if check_out < today:
+                return False, "The check-out date cannot be in the past. Please provide a future date.", None, None
+            if check_in >= check_out:
+                return False, "The check-out date must be after the check-in date.", None, None
+            max_stay = 30  # Assuming a maximum stay of 30 days, adjust as needed
+            if (check_out - check_in).days > max_stay:
+                return False, f"The maximum stay duration is {max_stay} days. Please adjust your dates.", None, None
+        else:
+            if chatbot.is_event:
+                return False, "For an event, please provide a single date.", None, None
+            elif chatbot.is_stay:
+                return False, "For a stay, please provide both check-in and check-out dates.", None, None
+            else:
+                return False, "Invalid booking type. Please specify either an event or a stay.", None, None
+
+        return True, None, check_in.strftime("%Y-%m-%d"), check_out.strftime("%Y-%m-%d") if check_out else None
+
     except ValueError:
-        return False
- 
+        return False, "Invalid date format. Please use YYYY-MM-DD format for dates.", None, None
 functions = [
     {
         "name": "set_experience",
@@ -647,21 +656,23 @@ functions = [
         }
     },
     {
-        "name": "set_dates",
-        "description": "Set the check-in and check-out dates for the booking. If two dates are provided, the earlier date will be set as check-in and the later as check-out. Dates default to the current yearis  if not specified date are not {berofre date(today)}.",
+        "name": "set_date",
+        "description": "Set the date(s) for the booking. If one date is provided, it's treated as an event date. If two dates are provided, they're treated as check-in and check-out dates for a stay. The earlier date will be set as check-in and the later as check-out. Dates should not be before today.",
         "parameters": {
             "type": "object",
             "properties": {
-                "check_in": {
-                    "type": "string",
-                    "description": "The check-in date in YYYY-MM-DD format",
-                },
-                "check_out": {
-                    "type": "string",
-                    "description": "The check-out date in YYYY-MM-DD format",
+                "dates": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "minItems": 1,
+                    "maxItems": 2,
+                    "description": "The date(s) in YYYY-MM-DD format. Provide one date for an event, or two dates for a stay (check-in and check-out)."
                 }
             },
-            "required": ["check_in", "check_out"]
+            "required": ["dates"]
         }
     },
     {

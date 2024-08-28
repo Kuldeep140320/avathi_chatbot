@@ -5,7 +5,7 @@ from datetime import timedelta
 # Load environment variables from .env file
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "vector_store_new_9")
+VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "vector_store_new_10")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 

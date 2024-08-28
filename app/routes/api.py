@@ -111,7 +111,7 @@ class APIUtils:
     @classmethod
     def get_price_by_date(cls, eoexperience_primary_key: str, date_of_exp: str, end_date: str) -> Optional[Dict[str, Any]]:
         data = {
-            'eoexperience_primary_key': eoexperience_primary_key,
+            'eoexperience_primary_key': 117,
             'date_of_exp': date_of_exp,
             'end_date': end_date
         }
