@@ -375,8 +375,11 @@ def interpret_user_response(chatbot,user_input):
         print(f"Error in interpret_user_response: {str(e)}")
         return "unclear"
 def process_login_response(chatbot, user_input):
+    if chatbot.user_auth['user_key']:
+        # chatbot.chat_history.add_ai_message("No problem. We'll continue without logging in.")
+        chatbot.show_login_popup=False
+        return calculate_price_and_payment(chatbot)
     response = interpret_user_response(chatbot,user_input)
-    print('\nresponse:',response)
     if response == "yes":
         chatbot.chat_history.add_ai_message("Great! Please enter log in Details.")
         chatbot.show_login_popup=True
