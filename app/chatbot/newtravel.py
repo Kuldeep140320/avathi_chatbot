@@ -237,6 +237,7 @@ def set_occupancy(chatbot, adults, children):
     user_data=chatbot.user_auth
     if not user_data['user_key']:
         message += f"Would you like to log in to get discount prices? If yes, click on the give link."
+        chatbot.show_login_popup=True
         chatbot.set_current_step('login_prompt')
         chatbot.chat_history.add_ai_message(message)
     else:
