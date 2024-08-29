@@ -132,7 +132,7 @@ def calculate_price_and_payment(chatbot):
         "total_amount": "0",
         "eouser_primary_key":user_key,  # This seems to be a static value, consider making it dynamic if needed
         "date_of_exp": chatbot.check_in,
-        "end_date": None,
+        "end_date": chatbot.check_out,
         "ticket_details": [
             {
                 "ticket_id": chatbot.selected_room['ticket_id'],
@@ -160,7 +160,6 @@ def calculate_price_and_payment(chatbot):
             "price": next(guest['price_per_ticket'] for guest in chatbot.selected_room['guests'] if guest['type'] == 2),
             "type": 2,
         })
-        
     price_response = APIUtils.get_payment_total(payload)
     price_response['payment_link']=None
     payment_data = price_response.get("data")
@@ -215,6 +214,7 @@ def calculate_price_and_payment(chatbot):
             message =chatbot.get_most_recent_message()
             message += f"Great! Here's a summary of your booking:"
             chatbot.chat_history.add_ai_message(message)
+            chatbot.current_step="take_payment"
             return "Would you like to confirm this booking or make any changes?"
 
         else:
