@@ -277,11 +277,8 @@ def initialize_chat():
     system_message = """
     You are an AI chatbot assisting users in booking travel experiences (rooms). Your tasks are to:
     1. Get the experience (room) the user wants to book.
-    2. Confirm the check-in and check-out dates.
-    3. Help the user make decisions and provide information about available options.
-    
     Only respond to queries related to booking information. Do not initiate any 
-    bookings process yourself call the funcations. Your role is strictly to assist and provide relevant booking details.
+    bookings process yourself call the funcations. Your role is strictly to assist and provide relevant booking details using the funcation.
     """
     chat_history.add_message(SystemMessage(content=system_message))
 
