@@ -422,6 +422,9 @@ def run_booking_assistant(user_input, chatbot=None):
     if chatbot.current_step == 'login_prompt':
         process_login_response(chatbot, user_input)
         return chatbot.get_most_recent_message(), chatbot.get_booking_state() ,convert_chat_history_to_messages(chatbot.chat_history)
+    if chatbot.current_step == 'set_payment_total' and chatbot.user_auth['user_key']:
+        calculate_price_and_payment(chatbot)
+        return chatbot.get_most_recent_message(), chatbot.get_booking_state() ,convert_chat_history_to_messages(chatbot.chat_history)
     
     if chatbot.price_data and chatbot.current_step=="set_room":
         selected_room=None
