@@ -515,8 +515,8 @@ def set_experience(chatbot, arguments):
         chatbot.date_picker = True
     elif len(relevant_experiences) > 1:
         chatbot.possible_experiences = relevant_experiences
-        for exp in relevant_experiences:
-            chatbot.add_option(exp['name'])
+        # for exp in relevant_experiences:
+            # chatbot.add_option(exp['name'])
         chatbot.chat_history.add_ai_message(f"I found multiple options matching your request.Here are the options \nPlease reply with the name of the experience you're interested in.")
     else:
         chatbot.chat_history.add_ai_message("I'm sorry, I couldn't find any experiences closely matching your request. Could you please try a different search term or provide more details about what you're looking for?")
