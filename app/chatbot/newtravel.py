@@ -223,7 +223,7 @@ def calculate_price_and_payment(chatbot):
         else:
             message =chatbot.get_most_recent_message()
             
-            if take_payment and  not success:
+            if not take_payment and  not success:
                 message += "There is currently no availability. Our team will connect with you within the next three hours. Great! Here's a summary of your booking:"
                 
                 chatbot.show_login_popup=False
