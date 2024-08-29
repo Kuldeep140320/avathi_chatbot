@@ -522,6 +522,8 @@ def set_experience(chatbot, arguments):
     if len(relevant_experiences) == 1:
         chatbot.experience_id = relevant_experiences[0]["id"]
         chatbot.experience_name = relevant_experiences[0]["name"]
+        chatbot.is_stay = relevant_experiences[0]["is_stay"]
+        chatbot.is_event = relevant_experiences[0]["is_event"]
         chatbot.chat_history.add_ai_message(f"Great! I've found the experience: {chatbot.experience_name}. When would you like to check in and check out?")
         chatbot.date_picker = True
     elif len(relevant_experiences) > 1:
