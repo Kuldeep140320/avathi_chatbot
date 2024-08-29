@@ -406,18 +406,21 @@ def process_login_response(chatbot, user_input):
     else:
         chatbot.chat_history.add_ai_message("I'm not sure if you want to log in or not. Could you please clarify?")
         return "Please respond with 'yes' if you'd like to log in for discounts, or 'no' to continue without logging in."
+def load_chat_history(messages):
+    chat_history = ChatMessageHistory()
+    for message in messages:
+        if message['role'] == 'user':
+            chat_history.add_user_message(message['content'])
+        elif message['role'] == 'assistant':
+            chat_history.add_ai_message(message['content'])
+        elif message['role'] == 'system':
+            chat_history.add_system_message(message['content'])
+    return chat_history
 def run_booking_assistant(user_input, chatbot=None):
     if not chatbot:
         chatbot = initialize_chat()
     elif isinstance(chatbot, dict):
-        chat_history = ChatMessageHistory()
-        for message in chatbot.get('chat_history', []):
-            if message['role'] == 'user':
-                chat_history.add_user_message(message['content'])
-            elif message['role'] == 'assistant':
-                chat_history.add_ai_message(message['content'])
-            elif message['role'] == 'system':
-                chat_history.add_system_message(message['content'])
+        chat_history = load_chat_history(chatbot.get('chat_history', []))
         llm = openai.OpenAI()
         new_chatbot = BookingRequest(chat_history, llm)
         new_chatbot.update_from_dict(chatbot)
