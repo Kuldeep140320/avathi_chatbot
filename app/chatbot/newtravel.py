@@ -166,7 +166,7 @@ def calculate_price_and_payment(chatbot):
     chatbot.payment_data = payment_data
     chatbot.current_step="set_payment_total"
     total_amount=price_response['data']['total_amount']
-    if 'user_key' in user_data and chatbot.user_auth['user_key'] and chatbot.user_auth['access_token']:
+    if chatbot.user_auth['user_key'] and chatbot.user_auth['access_token']:
         create_payment_payload={
                 "eoexperience_primary_key":chatbot.experience_id,
                 "date_of_exp": chatbot.check_in,
@@ -201,9 +201,11 @@ def calculate_price_and_payment(chatbot):
                 "price": next(guest['price_per_ticket'] for guest in chatbot.selected_room['guests'] if guest['type'] == 2),
                 "type": 2,
             })
+        print(create_payment_payload)
         create_payment=APIUtils.create_payment(create_payment_payload,chatbot.user_auth['access_token'])
         take_payment=create_payment['data']['take_payment']
         success=create_payment['data']['success']
+        print("\ncreate_payment",create_payment)
         if take_payment and  success:
             total_amount=create_payment['data']['total_amount']
             get_payment_token=APIUtils.get_payment_token()
@@ -220,8 +222,16 @@ def calculate_price_and_payment(chatbot):
 
         else:
             message =chatbot.get_most_recent_message()
-            chatbot.show_login_popup=True
-            message += "\nGreat! Here's a summary of your booking:"
+            
+            if take_payment and  not success:
+                message += "There is currently no availability. Our team will connect with you within the next three hours. Great! Here's a summary of your booking:"
+                
+                chatbot.show_login_popup=False
+            else:
+                message += "Great! Here's a summary of your booking:"
+                
+                chatbot.show_login_popup=True
+                
             chatbot.chat_history.add_ai_message(message)
             return "Would you like to confirm this booking or make any changes?"
     else:
