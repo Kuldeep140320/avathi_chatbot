@@ -540,7 +540,7 @@ def set_dates(chatbot, arguments):
                     check_out_obj = datetime.strptime(check_out, '%Y-%m-%d')
                     check_out_obj = check_out_obj.strftime('%d %b %Y')
                     message +=f"\nCheck-out : {check_out_obj}."
-                message +=f"\nPlease select a room from the options."
+                message +=f"\nPlease select a Ticket from the options."
                 chatbot.current_step="set_room"
                 chatbot.chat_history.add_ai_message(message)
             else:
