@@ -443,7 +443,7 @@ def run_booking_assistant(user_input, chatbot=None):
         )
     else:
         ai_response = chatbot.llm.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=convert_chat_history_to_messages(chatbot.chat_history),
         functions=functions,
         function_call="auto"
