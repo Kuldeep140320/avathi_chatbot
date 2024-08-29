@@ -114,7 +114,7 @@ def select_room_or_package(chatbot, room_selection,selected_room = None):
     if selected_room:
         chatbot.selected_room = selected_room
         chatbot.current_step="set_occupancy"
-        
+        chatbot.payment_data = None
         return ask_for_occupancy(chatbot)
     else:
         chatbot.chat_history.add_ai_message("I'm sorry, I couldn't find a room matching your selection. Could you please try again?")
@@ -164,6 +164,7 @@ def calculate_price_and_payment(chatbot):
     price_response['payment_link']=None
     payment_data = price_response.get("data")
     chatbot.payment_data = payment_data
+    chatbot.current_step="set_payment_total"
     total_amount=price_response['data']['total_amount']
     if 'user_key' in user_data and chatbot.user_auth['user_key'] and chatbot.user_auth['access_token']:
         create_payment_payload={
@@ -521,19 +522,17 @@ def set_experience(chatbot, arguments):
     else:
         chatbot.chat_history.add_ai_message("I'm sorry, I couldn't find any experiences closely matching your request. Could you please try a different search term or provide more details about what you're looking for?")
 def set_dates(chatbot, arguments):
-    print(arguments)
     dates = arguments.get("dates", [])
     is_valid, error_message, check_in, check_out = validate_dates(chatbot, dates)
-    print(check_in,check_out)
     if is_valid:
         chatbot.check_in = check_in
         chatbot.check_out = check_out
+        chatbot.selected_room = None
+        chatbot.price_data = None
+        chatbot.payment_data = None
         if chatbot.experience_id:
             price_info = get_price(chatbot)
-            
-            print(price_info)
             if price_info:
-                
                 check_in_obj = datetime.strptime(check_in, '%Y-%m-%d')
                 check_in_obj = check_in_obj.strftime('%d %b %Y')
                 message = f"Thank you. I've set your dates :\nCheck-in : {check_in_obj}"
